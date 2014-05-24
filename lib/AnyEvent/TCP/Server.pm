@@ -35,11 +35,13 @@ sub new {
         process_request =>  $params{process_request},
         port            =>  $params{port},
         workers         =>  $params{workers} // 1,
+        balancer        =>  $params{balancer} // 'round-robin',
     };
     
     bless $self, $class;
     return $self;
 }
+
 
 sub run {
     my ($self) = @_;

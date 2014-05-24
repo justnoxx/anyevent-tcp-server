@@ -26,37 +26,72 @@ sub run {
     my ($self) = @_;
 
     $0 = 'AE::TCP::Server Master';
-    for (1 .. $self->{_init_params}->{workers}) {
+    my $init_params = $self->{_init_params};
+    $self->{workers_count} = 0;
+
+    for (1 .. $init_params->{workers}) {
         print "spawning worker...\n";
-        my $w = AnyEvent::TCP::Server::Worker->spawn({});
+        my $w = AnyEvent::TCP::Server::Worker->spawn($init_params);
+        $w->{reader}->close();
         push @{$self->{_workers}}, $w;
     }
 
-    tcp_server undef, $self->{_init_params}->{port}, sub {
+    $self->{workers_count} = scalar @{$self->{_workers}};
+
+    tcp_server undef, $init_params->{port}, sub {
         my ($fh, $host, $port) = @_;
 
-        my $h;
-        # print "FDPASSING";
-        # IO::FDPass::send fileno $self->{_workers}[0]->{socket}, fileno $fh;
-        my $s = $self->{_workers}[0]->{writer};
-        print Dumper $s;
-        # warn Dumper $s->connected();
-        $h = AnyEvent::Handle->new(
-            fh      =>  $fh,
-            on_read =>  sub {
-                $h->push_write('Hello!');
-                # print Dumper $self->{_workers}[0]->{socket};
+        my $balancer = $init_params->{balancer};
+        $self->balance($balancer);
 
-                warn "FDPASS now!";
-                IO::FDPass::send fileno $s, fileno $fh or warn $!;
-                    # or die "unable to pass file handle: $!";;
-                $h->destroy();
-            }
-        );
+        warn "Next worker: ", $self->{next_worker};
+
+        my $h;
+
+        my $s = $self->{_workers}[$self->{next_worker}]->{writer};
+        print Dumper $s;
+        
+        IO::FDPass::send fileno $s, fileno $fh or croak $!;
+
+        # warn Dumper $s->connected();
+        # $h = AnyEvent::Handle->new(
+        #     fh          =>  $fh,
+        #     on_read     =>  sub {
+        #         IO::FDPass::send fileno $s, fileno $fh or croak $!;
+        #         # $h->destroy();
+        #     },
+        #     on_error    =>  sub {
+        #         warn "ONERROR!\n";
+        #         $h->destroy();
+        #     },
+        #     on_eof      =>  sub {
+        #         warn "ONDESROY!\n";
+        #         $h->destroy();
+        #     },
+        # );
     };
 
     print Dumper $self;
     AnyEvent->condvar->recv();
 }
+
+# only round robin at now
+
+sub balance {
+    my ($self, $balancer) = @_;
+
+    if (! exists $self->{next_worker}) {
+        $self->{next_worker} = 0;
+        return 0;
+    }
+
+    $self->{next_worker}++;
+    if ($self->{next_worker} >= $self->{workers_count}) {
+        $self->{next_worker} = 0;
+    }
+
+    return $self->{next_worker};
+}
+
 
 1;

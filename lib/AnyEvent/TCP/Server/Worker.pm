@@ -4,18 +4,23 @@ use strict;
 use Data::Dumper;
 use Carp;
 use AnyEvent;
-use AnyEvent::Util qw/portable_socketpair/;
+use AnyEvent::Util qw/portable_socketpair fh_nonblocking/;
 use IO::Socket::UNIX;
 use IO::FDPass;
 
 sub spawn {
     my ($class, $params) = @_;
 
-    my $self = {};
+    my $self = {
+        process_request => $params->{process_request},
+    };
     bless $self, $class;
 
     ($self->{reader}, $self->{writer}) = portable_socketpair();
 
+    fh_nonblocking($self->{reader}, 1);
+    fh_nonblocking($self->{writer}, 1);
+    
     my $pid = fork();
 
     # master
@@ -35,7 +40,7 @@ sub whoami {
 }
 
 sub run {
-    my $self = shift;
+    my ($self) = @_;
 
     $0 = 'AE::TCP::Server::Worker';
 
@@ -45,13 +50,17 @@ sub run {
         fh      =>  $self->{reader},
         poll    =>  'r',
         cb      =>  sub {
-            warn "CALLBACK!\n";
             my $fd = IO::FDPass::recv fileno $self->{reader};
-            # print Dumper $fh;
             open my $fh, "+<&=$fd" or croak "unable to convert file descriptor to handle: $!";
-            warn "FH: " . Dumper $fh;
             my $h;
-            $h = AnyEvent::Handle->new(fh=>$fh)->push_write("ATATA");
+
+            $h = AnyEvent::Handle->new(
+                fh  =>  $fh
+            );
+
+            my $sub = $self->{process_request};
+            $sub->($self, $fh, $h);
+            # $h = AnyEvent::Handle->new(fh=>$fh)->push_write($whoami);
 
         },
     );
