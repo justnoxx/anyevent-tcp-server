@@ -1,6 +1,9 @@
 package AnyEvent::TCP::Server::Worker;
 
 use strict;
+use warnings;
+use diagnostics;
+
 use Data::Dumper;
 use Carp;
 use AnyEvent;
@@ -25,11 +28,14 @@ sub spawn {
 
     # master
     if ($pid) {
+        # в мастере reader сокет не нужен, пока-что
+        $self->{reader}->close();
         $self->{pid} = $pid;
         return $self;
     }
     # worker
     else {
+        $self->{writer}->close();
         $self->{pid} = $$;
         $self->run();
     }
@@ -38,6 +44,14 @@ sub spawn {
 sub whoami {
     return Dumper shift;
 }
+
+
+sub pid {
+    my $self = shift;
+
+    return $self->{pid};
+}
+
 
 sub run {
     my ($self) = @_;
@@ -51,7 +65,7 @@ sub run {
         poll    =>  'r',
         cb      =>  sub {
             my $fd = IO::FDPass::recv fileno $self->{reader};
-            open my $fh, "+<&=$fd" or croak "unable to convert file descriptor to handle: $!";
+            open my $fh, "+<&=$fd" or warn "unable to convert file descriptor to handle: $!";
             my $h;
 
             $h = AnyEvent::Handle->new(
