@@ -12,7 +12,6 @@ use AnyEvent::Socket;
 use AnyEvent::Handle;
 use IO::FDPass;
 
-use AnyEvent::TCP::Server::Watcher;
 use AnyEvent::TCP::Server::Worker;
 
 use POSIX;
