@@ -10,9 +10,8 @@ use IO::FDPass;
 
 use AnyEvent::TCP::Server::Master;
 use AnyEvent::TCP::Server::Worker;
-use AnyEvent::TCP::Server::Watcher;
 
-our $VERSION = 0.08;
+our $VERSION = 0.09;
 
 sub new {
     my ($class, %params) = @_;
