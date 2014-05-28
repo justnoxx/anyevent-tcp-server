@@ -4,6 +4,8 @@ use strict;
 use warnings;
 use diagnostics;
 
+use EV;
+
 use Data::Dumper;
 use Carp;
 use AnyEvent;
@@ -35,6 +37,8 @@ sub spawn {
     }
     # worker
     else {
+        $self->{loop} = EV::Loop->new();
+        # EV::loop_fork();
         $self->{writer}->close();
         $self->{pid} = $$;
         $self->run();
@@ -78,7 +82,9 @@ sub run {
 
         },
     );
-    AnyEvent->condvar->recv();
+    EV::run();
+    # $self->{loop}
+    # AnyEvent->condvar->wait();
 }
 
 1;

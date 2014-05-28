@@ -12,7 +12,7 @@ my $ae = AnyEvent::TCP::Server->new(
     process_request     =>  sub {
         my ($worker_object, $fh, $ae_h) = @_;
 
-        print "PRMS:", Dumper \@_;
+        warn "Answered: $worker_object->{pid}";
         my $h = AnyEvent::Handle->new(fh=>$fh);
         $h->push_write("Hello!\n");
         $h->destroy();
