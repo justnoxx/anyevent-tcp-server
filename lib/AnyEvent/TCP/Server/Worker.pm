@@ -2,7 +2,7 @@ package AnyEvent::TCP::Server::Worker;
 
 use strict;
 use warnings;
-use diagnostics;
+# use diagnostics;
 
 use EV;
 
@@ -69,7 +69,7 @@ sub run {
         poll    =>  'r',
         cb      =>  sub {
             my $fd = IO::FDPass::recv fileno $self->{reader};
-            open my $fh, "+<&=$fd" or warn "unable to convert file descriptor to handle: $!";
+            open my $fh, "+<&=$fd" or croak "unable to convert file descriptor to handle: $!";
             my $h;
 
             $h = AnyEvent::Handle->new(
