@@ -46,6 +46,8 @@ sub run {
     my ($self) = @_;
 
     my $master = AnyEvent::TCP::Server::Master->new($self->{_init_params});
+    $master->prepare();
+    # exit 1;
     $master->run();
 }
 
