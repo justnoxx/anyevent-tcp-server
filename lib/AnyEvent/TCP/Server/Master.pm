@@ -1,19 +1,19 @@
 package AnyEvent::TCP::Server::Master;
 
 use strict;
-# use warnings;
-use warnings FATAL => 'all';
+use warnings;
 
 use Carp;
 use Data::Dumper;
 use AnyEvent;
 use AnyEvent::Socket;
 use System::Process;
-
+use Storable qw/freeze/;
 use AnyEvent::Handle;
 use IO::FDPass;
 
 use AnyEvent::TCP::Server::Worker;
+use AnyEvent::TCP::Server::Utils;
 
 use POSIX;
 
@@ -41,7 +41,7 @@ sub prepare {
     if ($self->{firstrun}) {
         %{$self->{respawn}} = map {$_, 1} (1 .. $init_params->{workers});
     }
-    warn 'prepared for respawn: ', Dumper $self->{respawn};
+    dbg_msg 'prepared for respawn: ', Dumper $self->{respawn};
 }
 
 
@@ -61,11 +61,9 @@ sub run {
 
     $self->{workers_count} = 0;
 
-    
-
     # run worker
     for my $key (sort {$a <=> $b} keys %{$self->{respawn}}) {
-        print "spawning worker: $key\n";
+        dbg_msg "spawning worker: $key\n";
         my $w = AnyEvent::TCP::Server::Worker->spawn($init_params);
 
         $w->{worker_number} = $_;
@@ -74,11 +72,9 @@ sub run {
         $self->numerate($w->{pid}, $key);
     }
 
-    warn "RESPAWNED!";
+    dbg_msg "Workers spawned";
 
     $self->{respawn} = {};
-
-    warn "REGISTERING SIGNALS";
 
     $self->{sigterm} = undef;
     $self->{sigterm} = AnyEvent->signal(
@@ -99,30 +95,41 @@ sub run {
         },
     );
 
-    warn "SIGNALS REGISTERED!";
-    
-    # exit 1;
-
-
     $self->set_watchers();
 
     
     my $guard;
-    $guard = tcp_server undef, $init_params->{port}, sub {
-        my ($fh, $host, $port) = @_;
+    eval {
+        $guard = tcp_server undef, $init_params->{port}, sub {
+            my ($fh, $host, $port) = @_;
 
-        warn "Connection accepted";
-        
-        my $current_worker = $self->next_worker();
-        my $cw = $current_worker;
+            dbg_msg "Connection accepted";
+            
+            my $current_worker = $self->next_worker();
+            my $cw = $current_worker;
 
-        warn "Next worker choosed: $self->{next_worker_number}";
+            dbg_msg "Next worker choosed: $self->{next_worker_number}";
 
-        my $s = $cw->{writer};
-        # пробросим файловый дескриптор воркеру
-        IO::FDPass::send fileno $s, fileno $fh or croak $!;
+            my $s = $cw->{writer};
+            # syswrite $s, "GET";
+            # пробросим файловый дескриптор воркеру
+            IO::FDPass::send fileno $s, fileno $fh or croak $!;
 
+            my $client = {
+                host    =>  $host,
+                port    =>  $port,
+            };
+
+            syswrite $cw->{wrtr}, freeze $client;
+            # syswrite $s, "GET";
+
+        };
+        1;
+    } or do {
+        $self->reap_children();
+        croak "Error occured: $@\n";
     };
+    
     my $cmd = $self->{_cv}->recv();
     $self->{_cv} = undef;
     $guard = undef;
@@ -135,9 +142,11 @@ sub run {
         $self->run();
     }
     else {
+        $self->reap_children();
         exit 1;
     }
 }
+
 
 sub next_worker {
     my ($self) = @_;
@@ -156,8 +165,9 @@ sub next_worker {
 
     return $self->get_worker($self->{next_worker_number});
 }
-# only round robin at now
 
+
+# only round robin at now
 sub balance {
     my ($self, $balancer) = @_;
 
@@ -173,6 +183,7 @@ sub balance {
     return $self->{next_worker};
 }
 
+
 sub set_watchers {
     my ($self) = @_;
     
@@ -185,21 +196,30 @@ sub set_watchers {
         push @{$self->{watchers}}, AnyEvent->child(
             pid => $w->{pid},
             cb  => sub {
+                # ошибка времени выполнения
+                if ($_[1] == 3328) {
+                    dbg_msg "Compile time error. Shut down";
+                    $self->reap_children();
+                    exit 0;
+                }
+                elsif ($_[1] == 25088) {
+                    dbg_msg 'bind error';
+                    $self->reap_children();
+                    exit 0;
+                }
+
                 undef $self->{timer};
                 $self->{timer} = AnyEvent->timer(
                     after   =>  0.1,
                     cb      =>  sub {
-                        warn "TIME IS UP!";
-                        warn "For respawn: ", Dumper $self->{respawn};
+                        dbg_msg "Workers for respawn: ", Dumper $self->{respawn};
                         $self->{_cv}->send('RESPAWN');
                     }
                 );
 
                 my $number = $self->number($w->{pid});
-                warn "number: $number";
-                # warn Dumper $self;
                 $self->{respawn}->{$number} = 1;
-                warn "OMG!111 pid $w->{pid} DIED!!111";
+                dbg_msg "Process with $w->{pid} died";
             },
         );
     }
@@ -209,15 +229,22 @@ sub set_watchers {
 sub process_signal {
     my ($self, $signal) = @_;
 
-    warn "Lets kill: ", Dumper $self->{_workers};
+    $self->reap_children();
+    return 1;
+}
+
+
+sub reap_children {
+    my ($self) = @_;
+
+    dbg_msg "Reaper is coming.";
     for my $w (values %{$self->{_workers}}) {
-        warn "[$$]: GONNA KILL: $w->{pid}!";
+        dbg_msg "[$$]: Reaping: $w->{pid}!";
         kill POSIX::SIGTERM, $w->{pid};
     }
     return 1;
 }
 
-# sub next_worker {}
 
 sub init_params {
     my ($self, $params) = @_;
@@ -230,6 +257,7 @@ sub init_params {
     return $params;
 }
 
+
 sub add_worker {
     my ($self, $worker, $number) = @_;
 
@@ -240,6 +268,7 @@ sub add_worker {
     $self->{_workers}->{$number} = $worker;
 }
 
+
 sub get_worker {
     my ($self, $number) = @_;
 
@@ -247,6 +276,7 @@ sub get_worker {
 
     return $self->{_workers}->{$number};
 }
+
 
 sub numerate {
     my ($self, $pid, $number) = @_;
@@ -256,6 +286,7 @@ sub numerate {
     return 1;
 }
 
+
 sub denumerate {
     my ($self, $pid) = @_;
 
@@ -263,17 +294,20 @@ sub denumerate {
     return 1;
 }
 
+
 sub number {
     my ($self, $pid) = @_;
 
     return $self->{_pids}->{$pid};
 }
 
+
 sub pid {
     my ($self, $number) = @_;
 
     return $self->{_numbers}->{$number};
 }
+
 
 1;
 

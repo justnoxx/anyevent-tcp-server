@@ -12,6 +12,10 @@ use AnyEvent;
 use AnyEvent::Util qw/portable_socketpair fh_nonblocking/;
 use IO::Socket::UNIX;
 use IO::FDPass;
+use Storable qw/thaw/;
+
+use AnyEvent::TCP::Server::Utils;
+
 
 sub spawn {
     my ($class, $params) = @_;
@@ -22,9 +26,13 @@ sub spawn {
     bless $self, $class;
 
     ($self->{reader}, $self->{writer}) = portable_socketpair();
+    ($self->{rdr}, $self->{wrtr}) = portable_socketpair();
 
     fh_nonblocking($self->{reader}, 1);
     fh_nonblocking($self->{writer}, 1);
+
+    fh_nonblocking($self->{rdr}, 1);
+    fh_nonblocking($self->{wrtr}, 1);
     
     my $pid = fork();
 
@@ -37,13 +45,12 @@ sub spawn {
     }
     # worker
     else {
-        $self->{loop} = EV::Loop->new();
-        # EV::loop_fork();
         $self->{writer}->close();
         $self->{pid} = $$;
         $self->run();
     }
 }
+
 
 sub whoami {
     return Dumper shift;
@@ -54,6 +61,12 @@ sub pid {
     my $self = shift;
 
     return $self->{pid};
+}
+
+
+# возможность для воркера выстрелить себе в ногу
+sub sepukku {
+    exit 1;
 }
 
 
@@ -68,24 +81,40 @@ sub run {
         fh      =>  $self->{reader},
         poll    =>  'r',
         cb      =>  sub {
-            my $fd = IO::FDPass::recv fileno $self->{reader};
-            open my $fh, "+<&=$fd" or croak "unable to convert file descriptor to handle: $!";
-            my $h;
 
-            $h = AnyEvent::Handle->new(
-                fh  =>  $fh
-            );
+            my $fd = IO::FDPass::recv fileno $self->{reader};
+
+            open my $fh, "+<&=$fd" or do {
+                dbg_msg "Unable to convert file descriptor to handle: $!";
+                # самоуничтожаемся, если дескриптор битый - лучше так, а мастер потом разберется
+                # а если мастер сдох, то никто это не обработает и все опять в выигрыше
+                $self->sepukku();
+            };
 
             my $sub = $self->{process_request};
-            $sub->($self, $fh, $h);
-            # $h = AnyEvent::Handle->new(fh=>$fh)->push_write($whoami);
 
+            my $ch;
+            $ch = AnyEvent::Handle->new(
+                fh          =>  $self->{rdr}, 
+                on_read     =>  sub {
+                    my $client = thaw($ch->{rbuf});
+                    $sub->($self, $fh, $client);
+                    $ch->destroy();
+                },
+            );
         },
     );
-    EV::run();
+    # EV::run();
     # $self->{loop}
-    # AnyEvent->condvar->wait();
+    AnyEvent->condvar->recv();
 }
+
+
+sub rdr_socket {
+    my $self = shift;
+    return $self->{reader};
+}
+
 
 1;
 
