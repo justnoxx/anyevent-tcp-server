@@ -2,14 +2,13 @@ package AnyEvent::TCP::Server::Master;
 
 use strict;
 use warnings;
-# use warnings FATAL => 'all';
 
 use Carp;
 use Data::Dumper;
 use AnyEvent;
 use AnyEvent::Socket;
 use System::Process;
-
+use Storable qw/freeze/;
 use AnyEvent::Handle;
 use IO::FDPass;
 
@@ -112,8 +111,17 @@ sub run {
             dbg_msg "Next worker choosed: $self->{next_worker_number}";
 
             my $s = $cw->{writer};
+            # syswrite $s, "GET";
             # пробросим файловый дескриптор воркеру
             IO::FDPass::send fileno $s, fileno $fh or croak $!;
+
+            my $client = {
+                host    =>  $host,
+                port    =>  $port,
+            };
+
+            syswrite $cw->{wrtr}, freeze $client;
+            # syswrite $s, "GET";
 
         };
         1;
