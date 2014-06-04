@@ -61,6 +61,8 @@ sub run {
 
     $self->{workers_count} = 0;
 
+    
+
     # run worker
     for my $key (sort {$a <=> $b} keys %{$self->{respawn}}) {
         print "spawning worker: $key\n";
@@ -73,15 +75,13 @@ sub run {
     }
 
     warn "RESPAWNED!";
+
     $self->{respawn} = {};
-    # exit 1;
 
+    warn "REGISTERING SIGNALS";
 
-    $self->set_watchers();
-    # $self->{workers_count} = scalar @{$self->{_workers}};
-
-    my $sigterm = undef;
-    $sigterm = AnyEvent->signal(
+    $self->{sigterm} = undef;
+    $self->{sigterm} = AnyEvent->signal(
         signal  =>  'TERM',
         cb      =>  sub {
             $self->process_signal('TERM');
@@ -89,9 +89,9 @@ sub run {
         },
     );
 
-    my $sigint = undef;
 
-    $sigint = AnyEvent->signal(
+    $self->{sigint} = undef;
+    $self->{sigint} = AnyEvent->signal(
         signal  =>  'INT',
         cb      =>  sub {
             $self->process_signal('INT');
@@ -99,6 +99,15 @@ sub run {
         },
     );
 
+    warn "SIGNALS REGISTERED!";
+    
+    # exit 1;
+
+
+    $self->set_watchers();
+    # $self->{workers_count} = scalar @{$self->{_workers}};
+
+    
     my $guard;
     $guard = tcp_server undef, $init_params->{port}, sub {
         my ($fh, $host, $port) = @_;
@@ -120,6 +129,10 @@ sub run {
     $guard = undef;
 
     if ($cmd eq 'RESPAWN') {
+        # насколько мне известно, это единственный способ грохнуть хэндлер
+        # сигнала в мастер процессе.
+        $SIG{INT} = $SIG{TERM} = 'DEFAULT';
+
         $self->run();
     }
     else {
@@ -188,7 +201,6 @@ sub set_watchers {
                 # warn Dumper $self;
                 $self->{respawn}->{$number} = 1;
                 warn "OMG!111 pid $w->{pid} DIED!!111";
-
             },
         );
     }
@@ -200,7 +212,7 @@ sub process_signal {
 
     warn "Lets kill: ", Dumper $self->{_workers};
     for my $w (values %{$self->{_workers}}) {
-        warn "GONNA KILL: $w->{pid}!";
+        warn "[$$]: GONNA KILL: $w->{pid}!";
         kill POSIX::SIGTERM, $w->{pid};
     }
     return 1;
