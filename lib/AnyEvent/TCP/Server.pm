@@ -13,7 +13,7 @@ use AnyEvent::TCP::Server::Master;
 use AnyEvent::TCP::Server::Worker;
 use AnyEvent::TCP::Server::Utils;
 
-our $VERSION = 0.15;
+our $VERSION = 0.20;
 
 sub new {
     my ($class, %params) = @_;
@@ -69,7 +69,7 @@ sub run {
     $self->announce();
 
     my $master = AnyEvent::TCP::Server::Master->new($self->{_init_params});
-    
+
     $master->prepare();
     $master->run();
 }
