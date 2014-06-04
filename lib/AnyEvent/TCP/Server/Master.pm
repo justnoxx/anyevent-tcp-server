@@ -105,7 +105,6 @@ sub run {
 
 
     $self->set_watchers();
-    # $self->{workers_count} = scalar @{$self->{_workers}};
 
     
     my $guard;
@@ -118,7 +117,7 @@ sub run {
         my $cw = $current_worker;
 
         warn "Next worker choosed: $self->{next_worker_number}";
-        # my $s = $self->{_workers}[$self->{next_worker}]->{writer};
+
         my $s = $cw->{writer};
         # пробросим файловый дескриптор воркеру
         IO::FDPass::send fileno $s, fileno $fh or croak $!;
@@ -188,7 +187,7 @@ sub set_watchers {
             cb  => sub {
                 undef $self->{timer};
                 $self->{timer} = AnyEvent->timer(
-                    after   =>  1,
+                    after   =>  0.1,
                     cb      =>  sub {
                         warn "TIME IS UP!";
                         warn "For respawn: ", Dumper $self->{respawn};
