@@ -12,6 +12,8 @@ use AnyEvent;
 use AnyEvent::Util qw/portable_socketpair fh_nonblocking/;
 use IO::Socket::UNIX;
 use IO::FDPass;
+use AnyEvent::TCP::Server::Utils;
+
 
 sub spawn {
     my ($class, $params) = @_;
@@ -37,13 +39,12 @@ sub spawn {
     }
     # worker
     else {
-        $self->{loop} = EV::Loop->new();
-        # EV::loop_fork();
         $self->{writer}->close();
         $self->{pid} = $$;
         $self->run();
     }
 }
+
 
 sub whoami {
     return Dumper shift;
@@ -54,6 +55,12 @@ sub pid {
     my $self = shift;
 
     return $self->{pid};
+}
+
+
+# возможность для воркера выстрелить себе в ногу
+sub sepukku {
+    exit 1;
 }
 
 
@@ -69,7 +76,13 @@ sub run {
         poll    =>  'r',
         cb      =>  sub {
             my $fd = IO::FDPass::recv fileno $self->{reader};
-            open my $fh, "+<&=$fd" or croak "unable to convert file descriptor to handle: $!";
+            open my $fh, "+<&=$fd" or do {
+                dbg_msg "Unable to convert file descriptor to handle: $!";
+                # самоуничтожаемся, если дескриптор битый - лучше так, а мастер потом разберется
+                # а если мастер сдох, то никто это не обработает и все опять в выигрыше
+                $self->sepukku();
+            };
+            
             my $h;
 
             $h = AnyEvent::Handle->new(
@@ -77,15 +90,23 @@ sub run {
             );
 
             my $sub = $self->{process_request};
+
             $sub->($self, $fh, $h);
             # $h = AnyEvent::Handle->new(fh=>$fh)->push_write($whoami);
 
         },
     );
-    EV::run();
+    # EV::run();
     # $self->{loop}
-    # AnyEvent->condvar->wait();
+    AnyEvent->condvar->recv();
 }
+
+
+sub rdr_socket {
+    my $self = shift;
+    return $self->{reader};
+}
+
 
 1;
 
