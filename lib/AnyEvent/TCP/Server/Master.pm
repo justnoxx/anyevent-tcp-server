@@ -41,6 +41,9 @@ sub prepare {
     if ($self->{firstrun}) {
         %{$self->{respawn}} = map {$_, 1} (1 .. $init_params->{workers});
     }
+
+    $self->{firstrun} = 0;
+
     dbg_msg 'prepared for respawn: ', Dumper $self->{respawn};
 }
 
@@ -64,9 +67,7 @@ sub run {
     # run worker
     for my $key (sort {$a <=> $b} keys %{$self->{respawn}}) {
         dbg_msg "spawning worker: $key\n";
-        my $w = AnyEvent::TCP::Server::Worker->spawn($init_params);
-
-        $w->{worker_number} = $_;
+        my $w = AnyEvent::TCP::Server::Worker->spawn($init_params, $key);
 
         $self->add_worker($w, $key);
         $self->numerate($w->{pid}, $key);
@@ -190,10 +191,12 @@ sub set_watchers {
     my $workers = $self->{_workers};
     my $init_params = $self->{_init_params};
 
-    $self->{watchers} = [];
+    $self->{watchers} = {};
 
     for my $w (values %{$self->{_workers}}) {
-        push @{$self->{watchers}}, AnyEvent->child(
+        my $worker_no = $w->worker_no();
+        # ставим вотчер по номеру
+        $self->{watchers}->{$worker_no} = AnyEvent->child(
             pid => $w->{pid},
             cb  => sub {
                 # ошибка времени выполнения

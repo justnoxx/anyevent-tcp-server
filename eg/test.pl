@@ -21,8 +21,8 @@ my $ae = AnyEvent::TCP::Server->new(
     },
     # sock_path             =>  '/Users/noxx/git/anyevent-tcp-server/eg',
     workers             =>  5,
-    # debug               =>  1,
-    pid                 =>  '/home/noxx/git/anyevent-tcp-server/eg/ae.pid',
+    debug               =>  1,
+    # pid                 =>  '/home/noxx/git/anyevent-tcp-server/eg/ae.pid',
     # daemonize           =>  1,
 );
 
