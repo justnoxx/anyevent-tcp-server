@@ -18,12 +18,18 @@ use AnyEvent::TCP::Server::Utils;
 
 
 sub spawn {
-    my ($class, $params) = @_;
+    my ($class, $params, $worker_number) = @_;
+
+    unless ($worker_number) {
+        croak "Can't spawn worker without number";
+    }
 
     my $self = {
         process_request => $params->{process_request},
     };
     bless $self, $class;
+
+    $self->worker_no($worker_number);
 
     ($self->{reader}, $self->{writer}) = portable_socketpair();
     ($self->{rdr}, $self->{wrtr}) = portable_socketpair();
@@ -115,6 +121,16 @@ sub rdr_socket {
     return $self->{reader};
 }
 
+sub worker_no {
+    my ($self, $number) = @_;
+
+
+    if ($number) {
+        $self->{worker_number} = $number;
+    }
+
+    return $self->{worker_number};
+}
 
 1;
 
