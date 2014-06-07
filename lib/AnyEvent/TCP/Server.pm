@@ -13,7 +13,7 @@ use AnyEvent::TCP::Server::Master;
 use AnyEvent::TCP::Server::Worker;
 use AnyEvent::TCP::Server::Utils;
 
-our $VERSION = 0.23;
+our $VERSION = 0.25;
 
 sub new {
     my ($class, %params) = @_;
@@ -57,6 +57,7 @@ sub new {
         port            =>  $params{port},
         workers         =>  $params{workers} // 1,
         balancer        =>  $params{balancer} // 'round-robin',
+        procname        =>  $params{procname},
     };
     
     return $self;

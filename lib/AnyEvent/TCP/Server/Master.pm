@@ -27,9 +27,15 @@ sub new {
         assoc           =>  {},
         firstrun        =>  1,
         max_workers     =>  $params->{workers},
+        procname        =>  'AE::TCP::Server::Master',
     };
 
     bless $self, $class;
+
+    if ($self->{_init_params}->{procname}) {
+        $self->{procname} = $self->{_init_params}->{procname} . ' master';
+    }
+
     return $self;
 }
 
@@ -48,17 +54,14 @@ sub prepare {
 }
 
 
-sub procname {
-    return 1;
-}
-
-
 sub run {
     my ($self) = @_;
 
     $self->{_cv} = AnyEvent->condvar();
 
-    $0 = 'AE::TCP::Server::Master';
+    procname $self->{procname};
+
+    # $0 = 'AE::TCP::Server::Master';
     
     my $init_params = $self->init_params();
 

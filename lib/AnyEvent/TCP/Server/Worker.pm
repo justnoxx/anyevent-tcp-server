@@ -25,9 +25,15 @@ sub spawn {
     }
 
     my $self = {
-        process_request => $params->{process_request},
+        process_request =>  $params->{process_request},
+        procname        =>  'AE::TCP::Server::Worker',
     };
+
     bless $self, $class;
+
+    if ($params->{procname}) {
+        $self->{procname} = $params->{procname} . ' worker';
+    }
 
     $self->worker_no($worker_number);
 
@@ -58,11 +64,6 @@ sub spawn {
 }
 
 
-sub whoami {
-    return Dumper shift;
-}
-
-
 sub pid {
     my $self = shift;
 
@@ -79,7 +80,7 @@ sub sepukku {
 sub run {
     my ($self) = @_;
 
-    $0 = 'AE::TCP::Server::Worker';
+    procname $self->{procname};
 
     my $sw;
 

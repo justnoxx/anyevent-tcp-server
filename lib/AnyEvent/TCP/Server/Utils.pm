@@ -5,8 +5,10 @@ our @ISA = qw/Exporter/;
 
 use strict;
 use warnings;
-use subs qw /debug now dbg_msg/;
-our @EXPORT = qw/now debug dbg_msg/;
+use Carp;
+
+use subs qw /debug now dbg_msg procname/;
+our @EXPORT = qw/now debug dbg_msg procname/;
 
 
 my $NOW_FORMAT = '[%d-%02d-%02d %02d:%02d:%02d]';
@@ -68,6 +70,17 @@ sub log_file {
     return $LOG_FILE; 
 }
 
+
+sub procname {
+    my ($procname) = @_;
+
+    unless ($procname) {
+        croak "Can't set procname without procname param";
+    }
+    $0 = $procname;
+
+    return 1;
+}
 1;
 
 __END__
