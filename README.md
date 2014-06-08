@@ -22,6 +22,6 @@ descriptor to worker. Worker executes user's subroutine
  - group \- group for setgid
  - procname \- name of process for ps
  - port \- port to listen. Unix sockets not supported right now
- - process_request \- subroutine ref for processing requests
+ - process\_request \- subroutine ref for processing requests
 
-**run** run connection manager and blocks.
+**run** runs connection manager and blocks.
