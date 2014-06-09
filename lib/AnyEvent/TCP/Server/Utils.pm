@@ -50,7 +50,9 @@ sub dbg_msg {
     }
     else {
         # TODO: add async log
-        ...;
+        # ...;
+        # for compat
+        warn $msg;
     }
     return 1;
 }
