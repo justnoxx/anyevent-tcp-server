@@ -14,7 +14,7 @@ my $ae = AnyEvent::TCP::Server->new(
 
         warn Dumper $client;
         my $h = AnyEvent::Handle->new(fh=>$fh);
-        $h->push_write("Hello!\n");
+        $h->push_write("[$$]: Hello!\n");
         $h->destroy();
         $fh->close();
         

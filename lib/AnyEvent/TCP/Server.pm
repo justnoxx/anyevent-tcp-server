@@ -13,7 +13,7 @@ use AnyEvent::TCP::Server::Master;
 use AnyEvent::TCP::Server::Worker;
 use AnyEvent::TCP::Server::Utils;
 
-our $VERSION = 0.25;
+our $VERSION = 0.31;
 
 sub new {
     my ($class, %params) = @_;
