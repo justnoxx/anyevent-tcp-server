@@ -22,18 +22,23 @@ sub new {
     my ($class, $params) = @_;
 
     my $self = {
-        _init_params    =>  $params,
-        _workers        =>  {},
-        assoc           =>  {},
-        firstrun        =>  1,
-        max_workers     =>  $params->{workers},
-        procname        =>  'AE::TCP::Server::Master',
+        _init_params        =>  $params,
+        _workers            =>  {},
+        assoc               =>  {},
+        firstrun            =>  1,
+        client_forwarding   =>  0,
+        max_workers         =>  $params->{workers},
+        procname            =>  'AE::TCP::Server::Master',
     };
 
     bless $self, $class;
 
     if ($self->{_init_params}->{procname}) {
         $self->{procname} = $self->{_init_params}->{procname} . ' master';
+    }
+
+    if ($self->{_init_params}->{client_forwarding}) {
+        $self->{client_forwarding} = 1;
     }
 
     return $self;
@@ -119,13 +124,15 @@ sub run {
             # пробросим файловый дескриптор воркеру
             IO::FDPass::send fileno $s, fileno $fh or croak $!;
 
-            my $client = {
-                host    =>  $host,
-                port    =>  $port,
-            };
+            if ($self->{client_forwarding}) {
+                my $client = {
+                    host    =>  $host,
+                    port    =>  $port,
+                };
 
-            syswrite $cw->{wrtr}, freeze $client;
-            # syswrite $s, "GET";
+                syswrite $cw->{wrtr}, freeze $client;
+                # syswrite $s, "GET";
+            }
 
         };
         1;

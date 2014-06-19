@@ -8,15 +8,17 @@ use AnyEvent;
 use AnyEvent::TCP::Server;
 
 my $ae = AnyEvent::TCP::Server->new(
+    # client_forwarding   =>  1,
     port                =>  44444,
     process_request     =>  sub {
         my ($worker_object, $fh, $client) = @_;
+        # warn Dumper $client;
 
         binmode $fh, ':raw';
 
         my $rw;$rw = AE::io $fh, 0, sub {
         if ( sysread ( $fh, my $buf, 1024*40 ) > 0 ) {
-            warn "ME: $$";
+            # warn "ME: $$";
             syswrite( $fh, "HTTP/1.1 200 OK\015\012Connection:close\015\012Content-Type:text/plain\015\012Content-Length:4\015\012\015\012Good" );
             undef $rw;
         }
@@ -30,7 +32,7 @@ my $ae = AnyEvent::TCP::Server->new(
         
     },
     # sock_path             =>  '/Users/noxx/git/anyevent-tcp-server/eg',
-    workers             =>  50,
+    workers               =>  9,
     # debug               =>  1,
     # procname            =>  'test.pl'
     # pid                 =>  '/home/noxx/git/anyevent-tcp-server/eg/ae.pid',

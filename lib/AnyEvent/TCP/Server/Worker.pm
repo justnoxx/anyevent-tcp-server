@@ -25,8 +25,9 @@ sub spawn {
     }
 
     my $self = {
-        process_request =>  $params->{process_request},
-        procname        =>  'AE::TCP::Server::Worker',
+        process_request     =>  $params->{process_request},
+        procname            =>  'AE::TCP::Server::Worker',
+        client_forwarding   =>  $params->{client_forwarding},
     };
 
     bless $self, $class;
@@ -38,13 +39,16 @@ sub spawn {
     $self->worker_no($worker_number);
 
     ($self->{reader}, $self->{writer}) = portable_socketpair();
-    ($self->{rdr}, $self->{wrtr}) = portable_socketpair();
+
 
     fh_nonblocking($self->{reader}, 1);
     fh_nonblocking($self->{writer}, 1);
 
-    fh_nonblocking($self->{rdr}, 1);
-    fh_nonblocking($self->{wrtr}, 1);
+    if ($self->{client_forwarding}) {
+        ($self->{fwd_reader}, $self->{fwd_writer}) = portable_socketpair();
+        fh_nonblocking($self->{fwd_reader}, 1);
+        fh_nonblocking($self->{fwd_writer}, 1);
+    }
     
     my $pid = fork();
 
@@ -52,12 +56,20 @@ sub spawn {
     if ($pid) {
         # в мастере reader сокет не нужен, пока-что
         $self->{reader}->close();
+        if ($self->{client_forwarding}) {
+            $self->{fwd_reader}->close();
+        }
+
         $self->{pid} = $pid;
         return $self;
     }
     # worker
     else {
         $self->{writer}->close();
+        if ($self->{client_forwarding}) {
+            $self->{fwd_writer}->close();
+        }
+
         $self->{pid} = $$;
         $self->run();
     }
@@ -100,15 +112,22 @@ sub run {
 
             my $sub = $self->{process_request};
 
-            my $ch;
-            $ch = AnyEvent::Handle->new(
-                fh          =>  $self->{rdr}, 
-                on_read     =>  sub {
-                    my $client = thaw($ch->{rbuf});
-                    $sub->($self, $fh, $client);
-                    $ch->destroy();
-                },
-            );
+            if ($self->{client_forwarding}) {
+                dbg_msg 'Client client_forwarding enabled!';
+                my $ch;
+                $ch = AnyEvent::Handle->new(
+                    fh          =>  $self->{fwd_reader}, 
+                    on_read     =>  sub {
+                        my $client = thaw($ch->{rbuf});
+                        $sub->($self, $fh, $client);
+                        $ch->destroy();
+                    },
+                );
+            }
+            else {
+                $sub->($self, $fh, {});
+            }
+
         },
     );
     # EV::run();
