@@ -8,14 +8,25 @@ use AnyEvent;
 use AnyEvent::TCP::Server;
 
 my $ae = AnyEvent::TCP::Server->new(
-    # client_forwarding   =>  1,
     port                =>  44444,
+    # если этот хендлер есть, то эта функция будет вызвана по конекту
+    # так получилось, что я не имею доступа к данным клиента из воркера.
+    # проброс данных клиента замедляет сервер в 3-4 раза.
+    # эта функция должна возвращать 1 или 0, если 1, то воркер получит это задание, если нет,
+    # то конект будет оборван.
+    
+    # check_on_connect    =>  sub {
+    #     my ($fh, $host, $port) = @_;
+    #     # warn "on connect: $$";
+    #     if (time() =~ m/[789]$/s) {
+    #         syswrite $fh, "GO AWAY!\n";
+    #         return 0;
+    #     }
+    #     return 1;
+    # },
     process_request     =>  sub {
         my ($worker_object, $fh, $client) = @_;
-        # warn Dumper $client;
-
         binmode $fh, ':raw';
-
         my $rw;$rw = AE::io $fh, 0, sub {
         if ( sysread ( $fh, my $buf, 1024*40 ) > 0 ) {
             # warn "ME: $$";

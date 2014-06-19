@@ -13,7 +13,7 @@ use AnyEvent::TCP::Server::Master;
 use AnyEvent::TCP::Server::Worker;
 use AnyEvent::TCP::Server::Utils;
 
-our $VERSION = 0.36;
+our $VERSION = 0.51;
 
 sub new {
     my ($class, %params) = @_;
@@ -61,6 +61,10 @@ sub new {
         client_forwarding   =>  $params{client_forwarding} // 0,
     };
     
+    if ($params{check_on_connect}) {
+        $self->{_init_params}->{check_on_connect} = $params{check_on_connect};
+    }
+
     return $self;
 }
 

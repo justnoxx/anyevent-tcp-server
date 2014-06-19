@@ -7,8 +7,6 @@ use Carp;
 use Data::Dumper;
 use AnyEvent;
 use AnyEvent::Socket;
-# use System::Process;
-use Storable qw/freeze/;
 use AnyEvent::Handle;
 use IO::FDPass;
 
@@ -39,6 +37,12 @@ sub new {
 
     if ($self->{_init_params}->{client_forwarding}) {
         $self->{client_forwarding} = 1;
+        croak "Client forwarding disabled right now. Maybe, it will be available soon.";
+    }
+
+    if ($params->{check_on_connect}) {
+        croak 'check_on_connect must be a CODE ref' if ref $params->{check_on_connect} ne 'CODE';
+        $self->{check_on_connect} = $params->{check_on_connect};
     }
 
     return $self;
@@ -107,10 +111,19 @@ sub run {
     $self->set_watchers();
 
     
-    my $guard;
+    my ($guard, $sub);
+    if ($self->{check_on_connect}) {
+        $sub = $self->{check_on_connect};
+    }
+
     eval {
         $guard = tcp_server undef, $init_params->{port}, sub {
             my ($fh, $host, $port) = @_;
+
+            if ($sub) {
+                my $resp = $sub->($fh, $host, $port);
+                return $resp unless $resp;
+            }
 
             dbg_msg "Connection accepted";
             
@@ -123,17 +136,6 @@ sub run {
             # syswrite $s, "GET";
             # пробросим файловый дескриптор воркеру
             IO::FDPass::send fileno $s, fileno $fh or croak $!;
-
-            if ($self->{client_forwarding}) {
-                my $client = {
-                    host    =>  $host,
-                    port    =>  $port,
-                };
-
-                syswrite $cw->{wrtr}, freeze $client;
-                # syswrite $s, "GET";
-            }
-
         };
         1;
     } or do {

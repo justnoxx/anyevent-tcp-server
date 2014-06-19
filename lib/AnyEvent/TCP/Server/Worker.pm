@@ -4,15 +4,12 @@ use strict;
 use warnings;
 # use diagnostics;
 
-use EV;
-
 use Data::Dumper;
 use Carp;
 use AnyEvent;
 use AnyEvent::Util qw/portable_socketpair fh_nonblocking/;
 use IO::Socket::UNIX;
 use IO::FDPass;
-use Storable qw/thaw/;
 
 use AnyEvent::TCP::Server::Utils;
 
@@ -109,29 +106,12 @@ sub run {
                 # а если мастер сдох, то никто это не обработает и все опять в выигрыше
                 $self->sepukku();
             };
-
             my $sub = $self->{process_request};
-
-            if ($self->{client_forwarding}) {
-                dbg_msg 'Client client_forwarding enabled!';
-                my $ch;
-                $ch = AnyEvent::Handle->new(
-                    fh          =>  $self->{fwd_reader}, 
-                    on_read     =>  sub {
-                        my $client = thaw($ch->{rbuf});
-                        $sub->($self, $fh, $client);
-                        $ch->destroy();
-                    },
-                );
-            }
-            else {
-                $sub->($self, $fh, {});
-            }
-
+            $sub->($self, $fh, {});
+            undef $sub;
         },
     );
-    # EV::run();
-    # $self->{loop}
+
     AnyEvent->condvar->recv();
 }
 
