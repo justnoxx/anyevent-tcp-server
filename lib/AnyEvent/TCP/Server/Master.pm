@@ -42,7 +42,10 @@ sub new {
 
     if ($params->{check_on_connect}) {
         croak 'check_on_connect must be a CODE ref' if ref $params->{check_on_connect} ne 'CODE';
-        $self->{check_on_connect} = $params->{check_on_connect};
+        # $self->{check_on_connect} = $params->{check_on_connect};
+        no warnings 'redefine';
+        *{AnyEvent::TCP::Server::Master::check_on_connect} = $params->{check_on_connect};
+        use warnings 'redefine';
     }
 
     if ($self->{_init_params}->{_log}) {
@@ -115,18 +118,17 @@ sub run {
     $self->set_watchers();
 
     
-    my ($guard, $sub);
-    if ($self->{check_on_connect}) {
-        $sub = $self->{check_on_connect};
-    }
+    my $guard;
 
     eval {
         $guard = tcp_server undef, $init_params->{port}, sub {
             my ($fh, $host, $port) = @_;
 
-            if ($sub) {
-                my $resp = $sub->($fh, $host, $port);
-                return $resp unless $resp;
+            # экспериментальный, более быстрый вариант
+            my $resp = check_on_connect($fh, $host, $port);
+
+            unless ($resp) {
+                return $resp;
             }
 
             dbg_msg "Connection accepted";
@@ -327,6 +329,9 @@ sub pid {
     return $self->{_numbers}->{$number};
 }
 
+sub check_on_connect {
+    return 1;
+}
 
 1;
 

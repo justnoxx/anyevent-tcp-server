@@ -98,6 +98,10 @@ sub run {
 
     my $sw;
 
+    no warnings 'redefine';
+    *{AnyEvent::TCP::Server::Worker::process_request} = $self->{process_request};
+    use warnings 'redefine';
+
     $sw = AnyEvent->io(
         fh      =>  $self->{reader},
         poll    =>  'r',
@@ -111,9 +115,8 @@ sub run {
                 # а если мастер сдох, то никто это не обработает и все опять в выигрыше
                 $self->sepukku();
             };
-            my $sub = $self->{process_request};
-            $sub->($self, $fh, {});
-            undef $sub;
+            
+            $self->process_request($fh, {});
         },
     );
 
@@ -149,6 +152,10 @@ sub log_object {
     );
 }
 
+
+sub process_request {
+    return 1;
+}
 
 1;
 
