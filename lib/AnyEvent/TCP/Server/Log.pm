@@ -48,6 +48,7 @@ sub new {
 
     bless $self, $class;
 
+    $self->parse_format_string();
     return $self;
 }
 
@@ -64,6 +65,7 @@ sub parse_format_string {
     my @slice_array = ();
     my $fs = $self->{format_string};
 
+    # TODO: переделать механизм парсинга строки
     for (my $i = 0; $i < scalar @tokens; $i++) {
         my $token = $tokens[$i];
         if ($fs =~ s/$token/%s/s) {

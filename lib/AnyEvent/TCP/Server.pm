@@ -52,6 +52,13 @@ sub new {
         $self->do_pid();
     }
     
+    if ($params{log} && ref $params{log} eq 'HASH') {
+        $self->{_log} = {
+            filename        =>  $params{log}->{filename},
+            format_string   =>  $params{log}->{format_string} // croak "Can't init log params without format_string",
+        };
+    }
+
     $self->{_init_params} = {
         process_request     =>  $params{process_request},
         port                =>  $params{port},
@@ -65,6 +72,9 @@ sub new {
         $self->{_init_params}->{check_on_connect} = $params{check_on_connect};
     }
 
+    if ($self->{_log}) {
+        $self->{_init_params}->{_log} = $self->{_log};
+    }
     return $self;
 }
 
@@ -97,9 +107,14 @@ sub announce {
 sub daemonize {
     my ($self) = @_;
 
+    unless (debug) {
+        open STDIN, '/dev/null'     or croak "Can't read /dev/null: $!";
+        open STDOUT, '>>/dev/null'  or croak "Can't write to /dev/null: $!";
+        open STDERR, '>>/dev/null'  or croak "Can't write to /dev/null: $!";
+    }
+
     chdir '/';
     exit if fork();
-    # TODO: suppress STD*
 }
 
 sub do_pid {

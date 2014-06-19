@@ -12,7 +12,7 @@ use IO::Socket::UNIX;
 use IO::FDPass;
 
 use AnyEvent::TCP::Server::Utils;
-
+use AnyEvent::TCP::Server::Log;
 
 sub spawn {
     my ($class, $params, $worker_number) = @_;
@@ -26,6 +26,11 @@ sub spawn {
         procname            =>  'AE::TCP::Server::Worker',
         client_forwarding   =>  $params->{client_forwarding},
     };
+
+    if ($params->{_log}) {
+        $self->{can_create_log_object} = 1;
+        $self->{_log} = $params->{_log};
+    }
 
     bless $self, $class;
 
@@ -121,6 +126,7 @@ sub rdr_socket {
     return $self->{reader};
 }
 
+
 sub worker_no {
     my ($self, $number) = @_;
 
@@ -131,6 +137,18 @@ sub worker_no {
 
     return $self->{worker_number};
 }
+
+
+sub log_object {
+    my ($self) = @_;
+
+    croak 'No params for log object' if !$self->{can_create_log_object};
+
+    return AnyEvent::TCP::Server::Log->new(
+        %{$self->{_log}}
+    );
+}
+
 
 1;
 

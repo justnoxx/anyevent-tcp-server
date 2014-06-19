@@ -45,6 +45,10 @@ sub new {
         $self->{check_on_connect} = $params->{check_on_connect};
     }
 
+    if ($self->{_init_params}->{_log}) {
+        $self->{_log} = $self->{_init_params}->{_log};
+    }
+    
     return $self;
 }
 

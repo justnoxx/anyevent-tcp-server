@@ -24,12 +24,21 @@ my $ae = AnyEvent::TCP::Server->new(
     #     }
     #     return 1;
     # },
+
+    # подключение лога:
+    # log                 =>  {
+    #     filename        =>  '/Users/noxx/git/anyevent-tcp-server/my_http.log',
+    #     format_string   =>  '[%year-%mon-%mday %hour:%min:%sec] %msg %n',
+    # },
     process_request     =>  sub {
         my ($worker_object, $fh, $client) = @_;
+        # my $log = $worker_object->log_object();
+
+        # warn Dumper $log;
         binmode $fh, ':raw';
         my $rw;$rw = AE::io $fh, 0, sub {
         if ( sysread ( $fh, my $buf, 1024*40 ) > 0 ) {
-            # warn "ME: $$";
+            # $log->log("Request!");
             syswrite( $fh, "HTTP/1.1 200 OK\015\012Connection:close\015\012Content-Type:text/plain\015\012Content-Length:4\015\012\015\012Good" );
             undef $rw;
         }
