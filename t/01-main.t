@@ -69,3 +69,5 @@ sub do_request {
     close SOCKET;
     return $data
 }
+
+1;
