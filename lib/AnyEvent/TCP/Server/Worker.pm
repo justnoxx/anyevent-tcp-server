@@ -2,7 +2,6 @@ package AnyEvent::TCP::Server::Worker;
 
 use strict;
 use warnings;
-# use diagnostics;
 
 use Data::Dumper;
 use Carp;
@@ -56,7 +55,6 @@ sub spawn {
 
     # master
     if ($pid) {
-        # в мастере reader сокет не нужен, пока-что
         $self->{reader}->close();
         if ($self->{client_forwarding}) {
             $self->{fwd_reader}->close();
@@ -85,7 +83,7 @@ sub pid {
 }
 
 
-# возможность для воркера выстрелить себе в ногу
+# worker can commit a suicide
 sub sepukku {
     exit 1;
 }
@@ -107,15 +105,17 @@ sub run {
         poll    =>  'r',
         cb      =>  sub {
 
+            # receive file descriptor from master
             my $fd = IO::FDPass::recv fileno $self->{reader};
 
             open my $fh, "+<&=$fd" or do {
                 dbg_msg "Unable to convert file descriptor to handle: $!";
-                # самоуничтожаемся, если дескриптор битый - лучше так, а мастер потом разберется
-                # а если мастер сдох, то никто это не обработает и все опять в выигрыше
+                # self-kill, if file descriptor is broken. Master will handle it.
+                # If master dead, there are no one, who cares.
                 $self->sepukku();
             };
             
+            # process request with user subroutine
             $self->process_request($fh, {});
         },
     );

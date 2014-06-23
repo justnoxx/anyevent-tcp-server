@@ -35,6 +35,7 @@ sub new {
         $self->{procname} = $self->{_init_params}->{procname} . ' master';
     }
 
+    # I have no idea, right now, hot to forward client data to callback most efficient way.
     if ($self->{_init_params}->{client_forwarding}) {
         $self->{client_forwarding} = 1;
         croak "Client forwarding disabled right now. Maybe, it will be available soon.";
@@ -42,7 +43,6 @@ sub new {
 
     if ($params->{check_on_connect}) {
         croak 'check_on_connect must be a CODE ref' if ref $params->{check_on_connect} ne 'CODE';
-        # $self->{check_on_connect} = $params->{check_on_connect};
         no warnings 'redefine';
         *{AnyEvent::TCP::Server::Master::check_on_connect} = $params->{check_on_connect};
         use warnings 'redefine';
@@ -56,6 +56,7 @@ sub new {
 }
 
 
+# internal sub, which prepares master to run.
 sub prepare {
     my ($self) = @_;
 
@@ -70,22 +71,22 @@ sub prepare {
 }
 
 
+# main function
 sub run {
     my ($self) = @_;
 
     $self->{_cv} = AnyEvent->condvar();
 
     procname $self->{procname};
-
-    # $0 = 'AE::TCP::Server::Master';
     
     my $init_params = $self->init_params();
 
     $self->{workers_count} = 0;
 
-    # run worker
+    # Worker processes spawning
     for my $key (sort {$a <=> $b} keys %{$self->{respawn}}) {
         dbg_msg "spawning worker: $key\n";
+        # key will become worker number
         my $w = AnyEvent::TCP::Server::Worker->spawn($init_params, $key);
 
         $self->add_worker($w, $key);
@@ -94,8 +95,10 @@ sub run {
 
     dbg_msg "Workers spawned";
 
+    # clean respawn hash, before we start
     $self->{respawn} = {};
 
+    # set sigterm handler
     $self->{sigterm} = undef;
     $self->{sigterm} = AnyEvent->signal(
         signal  =>  'TERM',
@@ -106,6 +109,7 @@ sub run {
     );
 
 
+    # set sigint handler
     $self->{sigint} = undef;
     $self->{sigint} = AnyEvent->signal(
         signal  =>  'INT',
@@ -115,36 +119,42 @@ sub run {
         },
     );
 
+    # set child watchers
     $self->set_watchers();
 
     
     my $guard;
 
     eval {
+        # start connection manager
         $guard = tcp_server undef, $init_params->{port}, sub {
             my ($fh, $host, $port) = @_;
 
-            # экспериментальный, более быстрый вариант
+            # call user's on_connect callback
             my $resp = check_on_connect($fh, $host, $port);
 
             unless ($resp) {
+                $fh->close();
                 return $resp;
             }
 
             dbg_msg "Connection accepted";
             
+            # get current worker, for request processing
             my $current_worker = $self->next_worker();
             my $cw = $current_worker;
 
             dbg_msg "Next worker choosed: $self->{next_worker_number}";
 
             my $s = $cw->{writer};
-            # syswrite $s, "GET";
-            # пробросим файловый дескриптор воркеру
+
+            # opened file descriptor forwarding. That's why I can't forward
+            # additional data right now.
             IO::FDPass::send fileno $s, fileno $fh or croak $!;
         };
         1;
     } or do {
+        # master died, let's reap children
         $self->reap_children();
         croak "Error occured: $@\n";
     };
@@ -153,11 +163,12 @@ sub run {
     $self->{_cv} = undef;
     $guard = undef;
 
+    # will respawn
     if ($cmd eq 'RESPAWN') {
-        # насколько мне известно, это единственный способ грохнуть хэндлер
-        # сигнала в мастер процессе.
+        # as I know, only way to destroy custom signals handler
         $SIG{INT} = $SIG{TERM} = 'DEFAULT';
 
+        # this sub is recursive because I can't fork active state machine.
         $self->run();
     }
     else {
@@ -167,6 +178,7 @@ sub run {
 }
 
 
+# Next worker function, rount-robin principle
 sub next_worker {
     my ($self) = @_;
 
@@ -186,23 +198,6 @@ sub next_worker {
 }
 
 
-# only round robin at now
-sub balance {
-    my ($self, $balancer) = @_;
-
-    if (! exists $self->{next_worker}) {
-        $self->{next_worker} = 1;
-        return 0;
-    }
-
-    $self->{next_worker}++;
-    if ($self->{next_worker} >= $self->{workers_count}) {
-        $self->{next_worker} = 0;
-    }
-    return $self->{next_worker};
-}
-
-
 sub set_watchers {
     my ($self) = @_;
     
@@ -213,23 +208,27 @@ sub set_watchers {
 
     for my $w (values %{$self->{_workers}}) {
         my $worker_no = $w->worker_no();
-        # ставим вотчер по номеру
+        # set watcher by number
         $self->{watchers}->{$worker_no} = AnyEvent->child(
             pid => $w->{pid},
             cb  => sub {
-                # ошибка времени выполнения
+                # runtime error
                 if ($_[1] == 3328) {
                     dbg_msg "Compile time error. Shut down";
                     $self->reap_children();
                     exit 0;
                 }
+                # bind error
                 elsif ($_[1] == 25088) {
                     dbg_msg 'bind error';
                     $self->reap_children();
                     exit 0;
                 }
 
+                # this conscturction created for killall handling.
                 undef $self->{timer};
+                # when child dies, timer starts and after time respawn comand
+                # will be sent
                 $self->{timer} = AnyEvent->timer(
                     after   =>  0.1,
                     cb      =>  sub {
@@ -238,6 +237,7 @@ sub set_watchers {
                     }
                 );
 
+                # set workers for respawn
                 my $number = $self->number($w->{pid});
                 $self->{respawn}->{$number} = 1;
                 dbg_msg "Process with $w->{pid} died";
@@ -328,6 +328,7 @@ sub pid {
 
     return $self->{_numbers}->{$number};
 }
+
 
 sub check_on_connect {
     return 1;

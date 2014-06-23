@@ -13,7 +13,9 @@ use AnyEvent::TCP::Server::Master;
 use AnyEvent::TCP::Server::Worker;
 use AnyEvent::TCP::Server::Utils;
 
-our $VERSION = 0.57;
+our $VERSION = 0.58;
+
+
 
 sub new {
     my ($class, %params) = @_;
@@ -21,10 +23,12 @@ sub new {
     my $self = {};
     bless $self, $class;
 
+    # main request handler
     if (!$params{process_request}) {
         croak 'Missing process_request param';
     }
 
+    # must be a coderef
     if (ref $params{process_request} ne 'CODE') {
         croak 'process_request must be a code ref';
     }
@@ -33,6 +37,7 @@ sub new {
         croak 'Missing port param';
     }
 
+    # params for setuid and setgid
     if ($params{user} || $params{group}) {
         $self->{user} = $params{user};
         $self->{group} = $params{group};
@@ -90,6 +95,7 @@ sub run {
     $master->run();
 }
 
+
 sub announce {
     my ($self) = @_;
 
@@ -104,6 +110,7 @@ sub announce {
 }
 
 
+# daemonize section
 sub daemonize {
     my ($self) = @_;
 
@@ -116,6 +123,7 @@ sub daemonize {
     chdir '/';
     exit if fork();
 }
+
 
 sub do_pid {
     my ($self, $pidfile) = @_;
@@ -139,6 +147,7 @@ sub do_pid {
     close PID;
     return 1;
 }
+
 
 sub apply_rights_change {
     my $options = shift;
@@ -178,3 +187,51 @@ sub apply_rights_change {
 1;
 
 __END__
+
+=head1 NAME
+
+AnyEvent::TCP::Server
+
+=head1 DESCRIPTION
+
+High perfomance full-asynchronous pre-forking tcp server with one restriction:
+B<you can't get client info(host, port, etc) inside of process_request_handler>
+
+=head1 SYNOPSIS
+    
+    use AnyEvent::TCP::Server;
+    my $ae_srvr = AnyEvent::TCP::Server->new(
+        # will daemonize
+        daemonize           =>  1,
+
+        # path to pid file, which used for master process pid
+        # pid               =>  '/path/to/pid/file',
+
+        # enables advanced debug
+        debug               =>  1,
+
+        # process name, used for ps
+        procname            =>  'my_cool_example',
+
+        # port to listen
+        port                =>  44444,
+
+        # on connect subroutine, if returns false - connection will terminated.
+        check_on_connect    =>  sub {
+            my ($fh, $host, $port) = @_;
+            return 1;
+        },
+
+        # main subroutine, it used by workers for request processing.
+        process_request     =>  sub {
+            my ($worker_object, $fh, undef) = @_;
+            syswrite $fh, "[$$]: Hello!";
+            close $fh;
+        },
+    );
+    
+    # run server
+    $ae_srvr->run();
+
+
+=cut
