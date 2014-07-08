@@ -13,7 +13,8 @@ use AnyEvent::TCP::Server::Master;
 use AnyEvent::TCP::Server::Worker;
 use AnyEvent::TCP::Server::Utils;
 
-our $VERSION = 0.59;
+
+our $VERSION = 0.60;
 
 
 sub new {

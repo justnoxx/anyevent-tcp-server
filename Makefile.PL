@@ -19,9 +19,9 @@ my %WriteMakefileArgs = (
         "Carp"  =>  0
     },
     "VERSION" => "0.04",
-    # "test" => {
-    #     "TESTS" => "t/*.t"
-    # }
+    "test" => {
+        "TESTS" => "t/*.t"
+    }
 
 );
 
