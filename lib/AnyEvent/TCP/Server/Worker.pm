@@ -98,7 +98,6 @@ sub run {
 
     no warnings 'redefine';
     *{AnyEvent::TCP::Server::Worker::process_request} = $self->{process_request};
-    use warnings 'redefine';
 
     $sw = AnyEvent->io(
         fh      =>  $self->{reader},
@@ -156,6 +155,7 @@ sub log_object {
 sub process_request {
     return 1;
 }
+
 
 1;
 

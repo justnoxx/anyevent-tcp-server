@@ -65,6 +65,7 @@ sub debug {
     return $DEBUG; 
 }
 
+
 sub log_file {
     my $param = shift;
 
@@ -83,6 +84,8 @@ sub procname {
 
     return 1;
 }
+
+
 1;
 
 __END__

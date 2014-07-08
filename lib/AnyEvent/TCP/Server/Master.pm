@@ -45,7 +45,6 @@ sub new {
         croak 'check_on_connect must be a CODE ref' if ref $params->{check_on_connect} ne 'CODE';
         no warnings 'redefine';
         *{AnyEvent::TCP::Server::Master::check_on_connect} = $params->{check_on_connect};
-        use warnings 'redefine';
     }
 
     if ($self->{_init_params}->{_log}) {
