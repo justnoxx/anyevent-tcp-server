@@ -15,7 +15,7 @@ use AnyEvent::Handle;
 use Carp;
 use Fcntl qw/:seek/;
 use AnyEvent::IO qw/:DEFAULT :flags/;
-
+use IO::Socket::INET;
 
 my $handle = undef;
 my %stats;
@@ -45,6 +45,10 @@ sub new {
     $self->{format_string} = $params->{format_string};
 
     $self->{umask} = $params->{umask} // 0600;
+    $self->{udp_socket} = new IO::Socket::INET(
+        PeerAddr    =>  q{127.0.0.1:5140},
+        Proto       =>  q{udp},
+    );
 
     bless $self, $class;
 
@@ -97,9 +101,13 @@ sub log {
 
     my $logline = $self->{transform_sub}->($msg);
 
-    $self->write_log($logline);
+    $self->send_udp_log($logline);
 }
 
+sub send_udp_log {
+    my ( $self, $logline ) = @_;
+    return $self->{udp_socket}->send($logline);
+}
 
 sub write_log {
     my $self = shift;
