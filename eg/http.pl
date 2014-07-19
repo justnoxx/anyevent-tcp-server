@@ -5,6 +5,9 @@ use Data::Dumper;
 use AnyEvent::Handle;
 use AnyEvent;
 
+use FindBin qw($Bin);
+use lib qq{$Bin/../lib};
+
 use AnyEvent::TCP::Server;
 
 my $ae = AnyEvent::TCP::Server->new(
