@@ -10,7 +10,7 @@ use AnyEvent::Socket;
 use AnyEvent::Handle;
 use IO::FDPass;
 
-use AnyEvent::TCP::Server::Worker;
+use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
 
 use POSIX;
@@ -86,8 +86,13 @@ sub run {
     for my $key (sort {$a <=> $b} keys %{$self->{respawn}}) {
         dbg_msg "spawning worker: $key\n";
         # key will become worker number
-        my $w = AnyEvent::TCP::Server::Worker->spawn($init_params, $key);
+        # my $w = AnyEvent::TCP::Server::Worker->spawn($init_params, $key);
 
+        my $w = AnyEvent::TCP::Server::ProcessWorker->spawn(
+            process_request =>  $init_params->{process_request},
+            number          =>  $key,
+            procname        =>  $init_params->{procname},
+        );
         $self->add_worker($w, $key);
         $self->numerate($w->{pid}, $key);
     }

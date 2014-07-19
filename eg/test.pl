@@ -12,7 +12,6 @@ my $ae = AnyEvent::TCP::Server->new(
     process_request     =>  sub {
         my ($worker_object, $fh, $client) = @_;
 
-        warn Dumper $client;
         my $h = AnyEvent::Handle->new(fh=>$fh);
         $h->push_write("[$$]: Hello!\n");
         $h->destroy();
@@ -21,8 +20,8 @@ my $ae = AnyEvent::TCP::Server->new(
     },
     # sock_path             =>  '/Users/noxx/git/anyevent-tcp-server/eg',
     workers             =>  5,
-    # debug               =>  1,
-    # procname            =>  'test.pl'
+    debug               =>  1,
+    procname            =>  'test.pl',
     # pid                 =>  '/home/noxx/git/anyevent-tcp-server/eg/ae.pid',
     # daemonize           =>  1,
 );

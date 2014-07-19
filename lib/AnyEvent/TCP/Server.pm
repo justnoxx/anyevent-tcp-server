@@ -10,7 +10,8 @@ use AnyEvent::Handle;
 use IO::FDPass;
 
 use AnyEvent::TCP::Server::Master;
-use AnyEvent::TCP::Server::Worker;
+
+use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
 
 
