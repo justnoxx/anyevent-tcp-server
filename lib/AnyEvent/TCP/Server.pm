@@ -15,7 +15,7 @@ use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
 
 
-our $VERSION = 0.60;
+our $VERSION = 0.61;
 
 
 sub new {
@@ -234,5 +234,10 @@ B<you can't get client info(host, port, etc) inside of process_request_handler>
     # run server
     $ae_srvr->run();
 
+=AUTHORS
+
+Dmitriy @justnoxx Shamatrin
+
+Michael @michaelshulichenko Shulichenko
 
 =cut
