@@ -11,6 +11,7 @@ use IO::Socket::UNIX;
 use IO::FDPass;
 
 use AnyEvent::TCP::Server::Utils;
+use AnyEvent::TCP::Server::Log q/log_client/;
 
 sub spawn {
     my ($self_p, %params) = @_;
@@ -30,6 +31,7 @@ sub spawn {
             my ($self, $spawn_params) = @_;
 
             ($self->{reader}, $self->{writer}) = portable_socketpair();
+            $self->{logger} = log_client();
             fh_nonblocking($self->{reader}, 1);
             fh_nonblocking($self->{writer}, 1);
             $self->condvar(AnyEvent->condvar());

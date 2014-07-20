@@ -36,7 +36,7 @@ my $ae = AnyEvent::TCP::Server->new(
     process_request     =>  sub {
         # warn 'Processing Request...';
         my ($worker_object, $fh, $client) = @_;
-        my $log = $worker_object->log_object();
+        my $log = $worker_object->{logger};
         $log->log("Request!");
         # warn Dumper $log;
         binmode $fh, ':raw';

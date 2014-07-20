@@ -29,10 +29,8 @@ sub init_logger {
             Proto     => 'udp',
             Reuse     => 1,
         ) or confess "Logger is not spawned: $!";
-        $server_log = \$socket;
-        bless $server_log => 'AnyEvent::TCP::Server::LogServer';
+        $server_log = bless \$socket => 'AnyEvent::TCP::Server::LogServer';
     }
-
     return $server_log;
 }
 

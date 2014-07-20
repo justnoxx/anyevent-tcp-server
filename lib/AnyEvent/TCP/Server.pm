@@ -62,8 +62,8 @@ sub new {
     if ($params{log} && ref $params{log} eq 'HASH') {
         log_conf(
             host => 'localhost',
-            port => '11000',
-        )
+            port => '11001',
+        );
         $self->{_log} = {
             filename        =>  $params{log}->{filename},
             format_string   =>  $params{log}->{format_string} // croak "Can't init log params without format_string",
