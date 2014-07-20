@@ -9,23 +9,94 @@ Little log mechanism. Doc will be soon.
 use strict;
 use warnings;
 
-use Carp;
-use POSIX qw(strftime);
+use Carp 'confess';
 use Sys::Hostname qw(hostname);
 use IO::Socket::INET;
 
-sub new {
-    my ($class, %params) = @_;
+use Exporter 'import';
 
-    my $self = {};
+our @EXPORT_OK = qw(log_client init_logger log_conf);
 
-    $self->{udp_socket} = new IO::Socket::INET(
-        PeerAddr    =>  q{127.0.0.1:5140},
-        Proto       =>  q{udp},
-    );
+my $LOG_HOST;
+my $LOG_PORT;
 
-    return bless $self, $class;
+my $server_log;
+
+sub init_logger {
+    unless ( $server_log) {
+        my $socket = IO::Socket::INET->new(
+            LocalAddr => log_host(),
+            LocalPort => log_port(),
+            Proto     => 'udp',
+        ) or confess "Logger is not spawned: $!";
+        $server_log = \$socket;
+        bless $server_log => 'AnyEvent::TCP::Server::LogServer';
+    }
+
+    return $server_log;
 }
+
+sub log_client {
+    my $logger = IO::Socket::INET->new(
+        PeerAddr    =>  log_host() . ':' . log_port(),
+        Proto       =>  'udp',
+    );
+    bless \$logger => 'AnyEvent::TCP::Server::LogClient';
+}
+
+sub log_conf {
+    my (%params) = @_;
+    log_port ( $params{port} );
+    log_host ( $params{host} );
+}
+
+sub log_host {
+    my $host = shift;
+    if ( $host ) {
+        unless ($LOG_HOST) {
+            $LOG_HOST = $host;
+        }
+    }
+    return $LOG_HOST;
+}
+
+sub log_port {
+    if ($_[0]) {
+        unless ($LOG_PORT) {
+            $LOG_PORT = $_[0];
+        }
+    }
+    return $LOG_PORT;
+}
+
+
+package AnyEvent::TCP::Server::LogServer;
+
+use strict;
+use warnings;
+
+sub recv {
+    my $server_log = shift;
+    if ( $server_log ) {
+        my $log_chunk;
+        $$server_log->recv($log_chunk, 4096);
+        return $log_chunk;
+    }
+};
+
+sub DESTROY {
+    my $self = shift;
+    print "DESTROING...";
+    $$self->close()
+}
+
+1;
+
+package AnyEvent::TCP::Server::LogClient;
+
+use strict;
+use Carp;
+use POSIX qw(strftime);
 
 sub log {
     my ($self, $msg) = @_;
@@ -37,7 +108,7 @@ sub log {
 
 sub send_udp_log {
     my ( $self, $logline ) = @_;
-    return $self->{udp_socket}->send($logline);
+    return $self->send($logline);
 }
 
 # Jul 19 10:29:40 michael-Inspiron-7720 anacron[3118]: Job `cron.daily' terminated

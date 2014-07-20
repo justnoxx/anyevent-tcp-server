@@ -13,6 +13,7 @@ use AnyEvent::TCP::Server::Master;
 
 use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
+use AnyEvent::TCP::Server::Log 'log_conf';
 
 
 our $VERSION = 0.61;
@@ -59,6 +60,10 @@ sub new {
     }
     
     if ($params{log} && ref $params{log} eq 'HASH') {
+        log_conf(
+            host => 'localhost',
+            port => '11000',
+        )
         $self->{_log} = {
             filename        =>  $params{log}->{filename},
             format_string   =>  $params{log}->{format_string} // croak "Can't init log params without format_string",
