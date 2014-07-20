@@ -10,7 +10,6 @@ use strict;
 use warnings;
 
 use Carp 'confess';
-use Sys::Hostname qw(hostname);
 use IO::Socket::INET;
 
 use Exporter 'import';
@@ -28,6 +27,7 @@ sub init_logger {
             LocalAddr => log_host(),
             LocalPort => log_port(),
             Proto     => 'udp',
+            Reuse     => 1,
         ) or confess "Logger is not spawned: $!";
         $server_log = \$socket;
         bless $server_log => 'AnyEvent::TCP::Server::LogServer';
@@ -84,12 +84,6 @@ sub recv {
     }
 };
 
-sub DESTROY {
-    my $self = shift;
-    print "DESTROING...";
-    $$self->close()
-}
-
 1;
 
 package AnyEvent::TCP::Server::LogClient;
@@ -97,6 +91,7 @@ package AnyEvent::TCP::Server::LogClient;
 use strict;
 use Carp;
 use POSIX qw(strftime);
+use Sys::Hostname qw(hostname);
 
 sub log {
     my ($self, $msg) = @_;
@@ -108,7 +103,7 @@ sub log {
 
 sub send_udp_log {
     my ( $self, $logline ) = @_;
-    return $self->send($logline);
+    return $$self->send($logline);
 }
 
 # Jul 19 10:29:40 michael-Inspiron-7720 anacron[3118]: Job `cron.daily' terminated
