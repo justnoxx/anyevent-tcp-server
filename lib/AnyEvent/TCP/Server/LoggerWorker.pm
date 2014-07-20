@@ -26,7 +26,8 @@ sub spawn {
             my $log_chunk =  $self->{logger}->recv();
 
             if ( $log_chunk ) {
-                print STDOUT $log_chunk;
+                my $fh = $self->{fh};
+                print $fh $log_chunk;
             }
         },
         master_does => sub {
