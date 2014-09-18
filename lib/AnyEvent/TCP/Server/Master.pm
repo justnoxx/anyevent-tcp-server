@@ -12,7 +12,7 @@ use IO::FDPass;
 
 use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
-
+use AnyEvent::TCP::Server::LoggerWorker;
 use POSIX;
 
 
@@ -81,6 +81,12 @@ sub run {
     my $init_params = $self->init_params();
 
     $self->{workers_count} = 0;
+
+    # Log process spawning
+    # my $l = AnyEvent::TCP::Server::LoggerWorker->spawn(
+    #     number          =>  100,
+    #     procname        =>  'logger',
+    # );
 
     # Worker processes spawning
     for my $key (sort {$a <=> $b} keys %{$self->{respawn}}) {

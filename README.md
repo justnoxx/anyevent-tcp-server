@@ -77,3 +77,5 @@ Little example, how to use it:
 Dmitriy @justnoxx Shamatrin
 
 Michael @michaelshulichenko Shulichenko
+
+Denys @shmakins Fisher
