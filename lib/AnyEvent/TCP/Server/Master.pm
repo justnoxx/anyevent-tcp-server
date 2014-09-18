@@ -338,6 +338,12 @@ sub check_on_connect {
     return 1;
 }
 
+
+# TODO: add new spawn mechanism for workers
+sub spawn_workers {
+    1;
+}
+
 1;
 
 
