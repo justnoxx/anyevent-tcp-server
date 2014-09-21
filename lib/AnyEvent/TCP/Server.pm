@@ -66,10 +66,16 @@ sub new {
         );
         $self->{_log} = {
             filename        =>  $params{log}->{filename},
-            format_string   =>  $params{log}->{format_string} // croak "Can't init log params without format_string",
+            # format_string   =>  $params{log}->{format_string} // croak "Can't init log params without format_string",
         };
+        if ($params{log}->{append}) {
+            $self->{_log}->{append} = $params{log}->{append};
+        }
     }
 
+    if (!$params{procname}) {
+        $params{procname} = "AE::TCP::Server";
+    }
     $self->{_init_params} = {
         process_request     =>  $params{process_request},
         port                =>  $params{port},

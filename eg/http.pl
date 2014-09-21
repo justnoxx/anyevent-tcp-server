@@ -9,6 +9,7 @@ use FindBin qw($Bin);
 use lib qq{$Bin/../lib};
 
 use AnyEvent::TCP::Server;
+use AnyEvent::TCP::Server::Log qw/log_client/;
 
 my $ae = AnyEvent::TCP::Server->new(
     port                =>  44444,
@@ -30,13 +31,15 @@ my $ae = AnyEvent::TCP::Server->new(
 
     # подключение лога:
     log                 =>  {
-        filename        =>  './my_http.log',
-        format_string   =>  '[%year-%mon-%mday %hour:%min:%sec] %msg %n',
+        filename        =>  '/Users/noxx/git/anyevent-tcp-server/eg/my_http.log',
+        append          =>  1,
+        # format_string   =>  '[%year-%mon-%mday %hour:%min:%sec] %msg %n',
     },
     process_request     =>  sub {
         # warn 'Processing Request...';
         my ($worker_object, $fh, $client) = @_;
-        my $log = $worker_object->{logger};
+        my $log = log_client();
+        # my $log = $worker_object->{logger};
         $log->log("Request!");
         # warn Dumper $log;
         binmode $fh, ':raw';
@@ -56,8 +59,8 @@ my $ae = AnyEvent::TCP::Server->new(
         
     },
     # sock_path             =>  '/Users/noxx/git/anyevent-tcp-server/eg',
-    workers               =>  9,
-    # debug               =>  1,
+    workers               =>  5,
+    debug               =>  1,
     # procname            =>  'test.pl'
     # pid                 =>  '/home/noxx/git/anyevent-tcp-server/eg/ae.pid',
     # daemonize           =>  1,

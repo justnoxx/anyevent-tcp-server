@@ -26,7 +26,7 @@ sub new {
         firstrun            =>  1,
         client_forwarding   =>  0,
         max_workers         =>  $params->{workers},
-        procname            =>  'AE::TCP::Server::Master',
+        # procname            =>  'AE::TCP::Server::Master',
     };
 
     bless $self, $class;
@@ -83,11 +83,7 @@ sub run {
     $self->{workers_count} = 0;
 
     # Log process spawning
-    # my $l = AnyEvent::TCP::Server::LoggerWorker->spawn(
-    #     number          =>  100,
-    #     procname        =>  'logger',
-    # );
-
+    $init_params->{procname} ||= 'AE::TCP::Server';
     # Worker processes spawning
     for my $key (sort {$a <=> $b} keys %{$self->{respawn}}) {
         dbg_msg "spawning worker: $key\n";
@@ -101,6 +97,24 @@ sub run {
         );
         $self->add_worker($w, $key);
         $self->numerate($w->{pid}, $key);
+    }
+
+    dbg_msg "Spawning logger";
+    if ($init_params->{_log}) {
+        my $log_config = $init_params->{_log};
+
+        if (!$log_config->{filename}) {
+            croak "Bad parameters";
+        }
+
+        my $l = AnyEvent::TCP::Server::LoggerWorker->spawn(
+            number          =>  1,
+            procname        =>  $init_params->{procname},
+            type            =>  'logger',
+            append          =>  $log_config->{append},
+            filename        =>  $log_config->{filename},
+        );
+        dbg_msg Dumper $l;
     }
 
     dbg_msg "Workers spawned";

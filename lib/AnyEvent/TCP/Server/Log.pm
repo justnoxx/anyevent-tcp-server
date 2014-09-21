@@ -16,8 +16,8 @@ use Exporter 'import';
 
 our @EXPORT_OK = qw(log_client init_logger log_conf);
 
-my $LOG_HOST;
-my $LOG_PORT;
+my $LOG_HOST = 'localhost';
+my $LOG_PORT = 55555;
 
 my $server_log;
 
@@ -92,8 +92,9 @@ use POSIX qw(strftime);
 use Sys::Hostname qw(hostname);
 
 sub log {
-    my ($self, $msg) = @_;
+    my ($self, @msg) = @_;
 
+    my $msg = join '', @msg;
     my $logline = $self->format_log($msg);
 
     $self->send_udp_log($logline);
