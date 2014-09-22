@@ -4,6 +4,15 @@
 
 AnyEvent::TCP::Server
 
+## WARNINGS
+
+This software is completely alpha quality and based on undocumented features
+every update of dependencies can, potentially, break this software.
+
+Also, I am not sure that it will work on FreeBSD 9 and Windows.
+
+Use Linux, Luke.
+
 ## DESCRITPION
 
 High perfomance pre-forking full-asynchronous tcp server. One restriction:
@@ -62,3 +71,11 @@ Little example, how to use it:
 
     # run server
     $ae_srvr->run();
+
+## AUTHORS
+
+Dmitriy @justnoxx Shamatrin
+
+Michael @michaelshulichenko Shulichenko
+
+Denys @shmakins Fisher

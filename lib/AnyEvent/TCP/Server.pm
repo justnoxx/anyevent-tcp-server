@@ -10,11 +10,13 @@ use AnyEvent::Handle;
 use IO::FDPass;
 
 use AnyEvent::TCP::Server::Master;
-use AnyEvent::TCP::Server::Worker;
+
+use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
+use AnyEvent::TCP::Server::Log 'log_conf';
 
 
-our $VERSION = 0.60;
+our $VERSION = 0.63;
 
 
 sub new {
@@ -58,12 +60,22 @@ sub new {
     }
     
     if ($params{log} && ref $params{log} eq 'HASH') {
+        log_conf(
+            host => 'localhost',
+            port => '11001',
+        );
         $self->{_log} = {
             filename        =>  $params{log}->{filename},
-            format_string   =>  $params{log}->{format_string} // croak "Can't init log params without format_string",
+            # format_string   =>  $params{log}->{format_string} // croak "Can't init log params without format_string",
         };
+        if ($params{log}->{append}) {
+            $self->{_log}->{append} = $params{log}->{append};
+        }
     }
 
+    if (!$params{procname}) {
+        $params{procname} = "AE::TCP::Server";
+    }
     $self->{_init_params} = {
         process_request     =>  $params{process_request},
         port                =>  $params{port},
@@ -233,5 +245,10 @@ B<you can't get client info(host, port, etc) inside of process_request_handler>
     # run server
     $ae_srvr->run();
 
+=AUTHORS
+
+Dmitriy @justnoxx Shamatrin
+
+Michael @michaelshulichenko Shulichenko
 
 =cut

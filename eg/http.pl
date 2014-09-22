@@ -5,7 +5,11 @@ use Data::Dumper;
 use AnyEvent::Handle;
 use AnyEvent;
 
+use FindBin qw($Bin);
+use lib qq{$Bin/../lib};
+
 use AnyEvent::TCP::Server;
+use AnyEvent::TCP::Server::Log qw/log_client/;
 
 my $ae = AnyEvent::TCP::Server->new(
     port                =>  44444,
@@ -26,16 +30,20 @@ my $ae = AnyEvent::TCP::Server->new(
     },
 
     # подключение лога:
-    log                 =>  {
-        filename        =>  './my_http.log',
-        format_string   =>  '[%year-%mon-%mday %hour:%min:%sec] %msg %n',
-    },
+    # log                 =>  {
+    #     filename        =>  '/Users/noxx/git/anyevent-tcp-server/eg/aetcpsrvr.log',
+    #     append          =>  1,
+    # },
     process_request     =>  sub {
-        # warn 'Processing Request...';
         my ($worker_object, $fh, $client) = @_;
-        my $log = $worker_object->log_object();
-        $log->log("Request!");
-        # warn Dumper $log;
+
+        my $log = log_client();
+        # $log->log("Request!");
+        $log->splunk_log(
+            msg     =>  'Request!',
+            error   =>  0,
+            data    =>  'AETCPSRVR'
+        );
         binmode $fh, ':raw';
         my $rw;$rw = AE::io $fh, 0, sub {
         if ( sysread ( $fh, my $buf, 1024*40 ) > 0 ) {
@@ -53,11 +61,11 @@ my $ae = AnyEvent::TCP::Server->new(
         
     },
     # sock_path             =>  '/Users/noxx/git/anyevent-tcp-server/eg',
-    workers               =>  9,
-    # debug               =>  1,
-    # procname            =>  'test.pl'
-    # pid                 =>  '/home/noxx/git/anyevent-tcp-server/eg/ae.pid',
-    # daemonize           =>  1,
+    workers                 =>  2,
+    debug                   =>  1,
+    # procname                =>  'test.pl'
+    # pid                     =>  '/home/noxx/git/anyevent-tcp-server/eg/ae.pid',
+    # daemonize               =>  1,
 );
 
 $ae->run();

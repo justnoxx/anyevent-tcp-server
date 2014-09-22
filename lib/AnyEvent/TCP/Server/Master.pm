@@ -10,9 +10,9 @@ use AnyEvent::Socket;
 use AnyEvent::Handle;
 use IO::FDPass;
 
-use AnyEvent::TCP::Server::Worker;
+use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
-
+use AnyEvent::TCP::Server::LoggerWorker;
 use POSIX;
 
 
@@ -26,7 +26,7 @@ sub new {
         firstrun            =>  1,
         client_forwarding   =>  0,
         max_workers         =>  $params->{workers},
-        procname            =>  'AE::TCP::Server::Master',
+        # procname            =>  'AE::TCP::Server::Master',
     };
 
     bless $self, $class;
@@ -82,14 +82,39 @@ sub run {
 
     $self->{workers_count} = 0;
 
+    # Log process spawning
+    $init_params->{procname} ||= 'AE::TCP::Server';
     # Worker processes spawning
     for my $key (sort {$a <=> $b} keys %{$self->{respawn}}) {
         dbg_msg "spawning worker: $key\n";
         # key will become worker number
-        my $w = AnyEvent::TCP::Server::Worker->spawn($init_params, $key);
+        # my $w = AnyEvent::TCP::Server::Worker->spawn($init_params, $key);
 
+        my $w = AnyEvent::TCP::Server::ProcessWorker->spawn(
+            process_request =>  $init_params->{process_request},
+            number          =>  $key,
+            procname        =>  $init_params->{procname},
+        );
         $self->add_worker($w, $key);
         $self->numerate($w->{pid}, $key);
+    }
+
+    dbg_msg "Spawning logger";
+    if ($init_params->{_log}) {
+        my $log_config = $init_params->{_log};
+
+        if (!$log_config->{filename}) {
+            croak "Bad parameters";
+        }
+
+        my $l = AnyEvent::TCP::Server::LoggerWorker->spawn(
+            number          =>  1,
+            procname        =>  $init_params->{procname},
+            type            =>  'logger',
+            append          =>  $log_config->{append},
+            filename        =>  $log_config->{filename},
+        );
+        dbg_msg Dumper $l;
     }
 
     dbg_msg "Workers spawned";
@@ -331,6 +356,12 @@ sub pid {
 
 sub check_on_connect {
     return 1;
+}
+
+
+# TODO: add new spawn mechanism for workers
+sub spawn_workers {
+    1;
 }
 
 1;

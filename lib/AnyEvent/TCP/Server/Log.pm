@@ -9,214 +9,159 @@ Little log mechanism. Doc will be soon.
 use strict;
 use warnings;
 
-use AnyEvent;
-use AnyEvent::Handle;
+use Carp 'confess';
+use IO::Socket::INET;
+use Exporter 'import';
+use AnyEvent::TCP::Server::Utils;
 
-use Carp;
-use Fcntl qw/:seek/;
-use AnyEvent::IO qw/:DEFAULT :flags/;
+our @EXPORT_OK = qw(log_client init_logger log_conf);
+our $INITIATED = 0;
 
+my $LOG_HOST = 'localhost';
+my $LOG_PORT = 55555;
 
-my $handle = undef;
-my %stats;
+my $server_log;
 
-my @tokens = (
-    '%sec',     # second    # 0
-    '%min',     # minute    # 1
-    '%hour',    # hour      # 2
-    '%mday',    # mday      # 3
-    '%mon',     # mon       # 4
-    '%year'     # year      # 5
-);
-
-
-sub new {
-    my ($class, %params) = @_;
-
-    my $params = \%params;
-    my $self = {};
-
-    $self->{filename} = $params->{filename} // 'STDOUT';
-
-    unless ($params->{format_string}) {
-        croak "Can't use log without format_string param";
+sub init_logger {
+    unless ( $server_log) {
+        my $socket = IO::Socket::INET->new(
+            LocalAddr => log_host(),
+            LocalPort => log_port(),
+            Proto     => 'udp',
+            Reuse     => 1,
+        ) or confess "Logger is not spawned: $!";
+        $server_log = bless \$socket => 'AnyEvent::TCP::Server::LogServer';
     }
+    dbg_msg "Logger initiating";
+    $INITIATED = 1;
+    dbg_msg "Initiated: $INITIATED";
+    return $server_log;
+}
 
-    $self->{format_string} = $params->{format_string};
+sub log_client {
+    my $logger = IO::Socket::INET->new(
+        PeerAddr    =>  log_host() . ':' . log_port(),
+        Proto       =>  'udp',
+    );
 
-    $self->{umask} = $params->{umask} // 0600;
-
-    bless $self, $class;
-
-    $self->parse_format_string();
-    return $self;
+    *{AnyEvent::TCP::Server::LogClient::enabled} = sub {return 1;};
+    bless \$logger => 'AnyEvent::TCP::Server::LogClient';
 }
 
 
-sub parse_format_string {
-    my ($self, $params) = @_;
+sub log_conf {
+    my (%params) = @_;
+    log_port ( $params{port} );
+    log_host ( $params{host} );
+}
 
-    unless ($self->{format_string}) {
-        croak "Can't parse nothing!";
-    }
 
-    $self->{format_string} =~ s/%n/\n/s;
-
-    my @slice_array = ();
-    my $fs = $self->{format_string};
-
-    # TODO: переделать механизм парсинга строки
-    for (my $i = 0; $i < scalar @tokens; $i++) {
-        my $token = $tokens[$i];
-        if ($fs =~ s/$token/%s/s) {
-            unshift @slice_array, $i;
+sub log_host {
+    my $host = shift;
+    if ( $host ) {
+        unless ($LOG_HOST) {
+            $LOG_HOST = $host;
         }
     }
-
-    $self->{parsed_format_string} = $fs;
-
-    $self->{transform_sub} = sub {
-        my ($msg) = @_;
-        
-        my $logline = $fs;
-        $logline =~ s/%msg/$msg/gs;
-        my @now = get_now();
-        $logline = sprintf $logline, @now[@slice_array];
-        return $logline;
-    };
-
+    return $LOG_HOST;
 }
 
+sub log_port {
+    if ($_[0]) {
+        unless ($LOG_PORT) {
+            $LOG_PORT = $_[0];
+        }
+    }
+    return $LOG_PORT;
+}
+
+
+package AnyEvent::TCP::Server::LogServer;
+
+use strict;
+use warnings;
+
+sub recv {
+    my $server_log = shift;
+    if ( $server_log ) {
+        my $log_chunk;
+        $$server_log->recv($log_chunk, 4096);
+        return $log_chunk;
+    }
+};
+
+1;
+
+package AnyEvent::TCP::Server::LogClient;
+
+use strict;
+use Carp;
+use POSIX qw(strftime);
+use Sys::Hostname qw(hostname);
+use subs qw/enabled/;
+
+use AnyEvent::TCP::Server::Log;
+use AnyEvent::TCP::Server::Utils;
+
+
+sub enabled {
+    return 0;
+}
+
+
+sub splunk_log {
+    return 1 unless enabled;
+    my $self = shift;
+
+    my $params;
+    if (ref $_[0]) {
+        $params = shift;
+    }
+    else {
+        my %params = @_;
+        $params = \%params;
+    }
+
+    my $date = strftime(q|%Y-%m-%d %H:%M:%S :> |, localtime);
+
+    my @msg;
+    for my $key (keys %$params) {
+        if (exists $params->{$key}) {
+            push @msg, "$key=$params->{$key}";
+        }
+    }
+    my $msg = join ' ', @msg;
+    $msg .= "\n";
+
+    my $logline = $date . $msg;
+
+    $self->send_udp_log($logline);
+}
 
 sub log {
     my ($self, @msg) = @_;
-
-    croak unless ($self->{transform_sub});
+    return 1 unless enabled;
 
     my $msg = join '', @msg;
+    my $logline = $self->format_log($msg);
 
-    my $logline = $self->{transform_sub}->($msg);
-
-    $self->write_log($logline);
+    $self->send_udp_log($logline);
 }
 
+sub send_udp_log {
+    return 1 unless enabled;
+    my ( $self, $logline ) = @_;
 
-sub write_log {
-    my $self = shift;
-    my $logline = shift;
-
-    if ($self->{filename} =~ m/STDOUT/s) {
-        print $logline
-        return 1;
-    }
-
-    if ($handle && !-e $self->{filename}) {
-        $handle->destroy();
-        $handle = undef;
-    }
-
-    if (!check_file($self->{filename})) {
-        $handle->destroy() if $handle;
-        $handle = undef;
-    }
-
-    if ($handle) {
-        _push_write($handle, $self->{filename}, $logline);
-        return 1;
-    }
-
-    # если таки хендлера нет, мы его создадим
-    aio_open $self->{filename}, O_WRONLY | O_APPEND | O_CREAT, $self->{umask}, sub {
-        my ($fh) = @_;
-
-        $handle ||= AnyEvent::Handle->new(
-            fh          =>  $fh,
-            on_error    =>  sub {
-                $handle->destroy();
-                $handle = undef;
-            },
-            on_eof      =>  sub {
-                $handle->destroy();
-                $handle = undef;
-            },
-            on_close    =>  sub {
-                $handle->destroy();
-                $handle = undef;
-            },
-        );    
-        
-        my $ae_h;
-        $ae_h = $handle;
-        _push_write($ae_h, $self->{filename}, $logline);
-    };
-    return 1;
+    return $$self->send($logline);
 }
 
-
-sub check_file {
-    my $fname = shift;
-
-    return 1 if (!exists $stats{last_stat}->{$fname} && !exists $stats{current_stat}->{$fname});
-
-    $stats{last_stat}->{$fname} ||= 0;
-    $stats{current_stat}->{$fname} ||= 0;
-
-    if ($stats{last_stat}->{$fname} == $stats{current_stat}->{$fname}) {
-        return 0;
-    }
-
-    return 1;
-}
+# Jul 19 10:29:40 michael-Inspiron-7720 anacron[3118]: Job `cron.daily' terminated
 
 
-sub get_now {
-    my ($self, $params) = @_;
-
-    my $dh;
-
-    my @arr = (
-        $dh->{sec},
-        $dh->{min},
-        $dh->{hour},
-        $dh->{mday},
-        $dh->{mon},
-        $dh->{year},
-        $dh->{wday},
-        $dh->{yday},
-        $dh->{isdst}
-    ) = localtime(time);
-
-
-    if (wantarray) {
-
-        $arr[4]++;
-        $arr[5] += 1900;
-        for (0 .. 5) {
-            $arr[$_] = sprintf('%02d', $arr[$_]);
-        }
-        return @arr;
-    }
-    else {
-        $dh->{year} += 1900;
-        $dh->{mon}++;
-
-        for (qw/mon mday hour min sec/) {
-            $dh->{$_} = sprintf('%02d', $dh->{$_});
-        }
-        return $dh;
-    }
-}
-
-
-sub _push_write {
-    my ($handle, $fname, $message) = @_;
-
-    # как-то так
-    seek $handle->{fh}, 0, SEEK_END;
-
-    $stats{last_stat}->{$fname} = -s $fname;
-    $handle->push_write($message);
-    $stats{current_stat}->{$fname} = -s $fname;
+sub format_log {
+    my ( $self, $logline ) = @_;
+    my $date = strftime(q{%b %d %H:%M:%S}, localtime);
+    return sprintf q{%s %s %s[%d]: %s }, $date, hostname(), $0, $$, $logline;
 }
 
 
