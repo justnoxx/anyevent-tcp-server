@@ -44,6 +44,8 @@ sub log_client {
         Proto       =>  'udp',
     );
 
+    no warnings qw/redefine/;
+    
     *{AnyEvent::TCP::Server::LogClient::enabled} = sub {return 1;};
     bless \$logger => 'AnyEvent::TCP::Server::LogClient';
 }

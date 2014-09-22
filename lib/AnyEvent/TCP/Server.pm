@@ -13,10 +13,10 @@ use AnyEvent::TCP::Server::Master;
 
 use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
-use AnyEvent::TCP::Server::Log 'log_conf';
+use AnyEvent::TCP::Server::Log qw/log_conf log_client/;
 
 
-our $VERSION = 0.63;
+our $VERSION = 0.65;
 
 
 sub new {
@@ -195,6 +195,9 @@ sub apply_rights_change {
     return 1;
 }
 
+sub get_logger {
+    return log_client();
+}
 
 1;
 

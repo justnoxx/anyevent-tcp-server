@@ -9,7 +9,6 @@ use FindBin qw($Bin);
 use lib qq{$Bin/../lib};
 
 use AnyEvent::TCP::Server;
-use AnyEvent::TCP::Server::Log qw/log_client/;
 
 my $ae = AnyEvent::TCP::Server->new(
     port                =>  44444,
@@ -37,7 +36,7 @@ my $ae = AnyEvent::TCP::Server->new(
     process_request     =>  sub {
         my ($worker_object, $fh, $client) = @_;
 
-        my $log = log_client();
+        my $log = AnyEvent::TCP::Server->get_logger();
         # $log->log("Request!");
         $log->splunk_log(
             msg     =>  'Request!',
