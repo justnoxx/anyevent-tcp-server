@@ -16,7 +16,7 @@ use AnyEvent::TCP::Server::Utils;
 use AnyEvent::TCP::Server::Log 'log_conf';
 
 
-our $VERSION = 0.61;
+our $VERSION = 0.63;
 
 
 sub new {

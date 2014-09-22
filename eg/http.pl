@@ -30,18 +30,20 @@ my $ae = AnyEvent::TCP::Server->new(
     },
 
     # подключение лога:
-    log                 =>  {
-        filename        =>  '/Users/noxx/git/anyevent-tcp-server/eg/my_http.log',
-        append          =>  1,
-        # format_string   =>  '[%year-%mon-%mday %hour:%min:%sec] %msg %n',
-    },
+    # log                 =>  {
+    #     filename        =>  '/Users/noxx/git/anyevent-tcp-server/eg/aetcpsrvr.log',
+    #     append          =>  1,
+    # },
     process_request     =>  sub {
-        # warn 'Processing Request...';
         my ($worker_object, $fh, $client) = @_;
+
         my $log = log_client();
-        # my $log = $worker_object->{logger};
-        $log->log("Request!");
-        # warn Dumper $log;
+        # $log->log("Request!");
+        $log->splunk_log(
+            msg     =>  'Request!',
+            error   =>  0,
+            data    =>  'AETCPSRVR'
+        );
         binmode $fh, ':raw';
         my $rw;$rw = AE::io $fh, 0, sub {
         if ( sysread ( $fh, my $buf, 1024*40 ) > 0 ) {
@@ -59,11 +61,11 @@ my $ae = AnyEvent::TCP::Server->new(
         
     },
     # sock_path             =>  '/Users/noxx/git/anyevent-tcp-server/eg',
-    workers               =>  5,
-    debug               =>  1,
-    # procname            =>  'test.pl'
-    # pid                 =>  '/home/noxx/git/anyevent-tcp-server/eg/ae.pid',
-    # daemonize           =>  1,
+    workers                 =>  2,
+    debug                   =>  1,
+    # procname                =>  'test.pl'
+    # pid                     =>  '/home/noxx/git/anyevent-tcp-server/eg/ae.pid',
+    # daemonize               =>  1,
 );
 
 $ae->run();

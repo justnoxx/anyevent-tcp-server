@@ -11,10 +11,11 @@ use warnings;
 
 use Carp 'confess';
 use IO::Socket::INET;
-
 use Exporter 'import';
+use AnyEvent::TCP::Server::Utils;
 
 our @EXPORT_OK = qw(log_client init_logger log_conf);
+our $INITIATED = 0;
 
 my $LOG_HOST = 'localhost';
 my $LOG_PORT = 55555;
@@ -31,6 +32,9 @@ sub init_logger {
         ) or confess "Logger is not spawned: $!";
         $server_log = bless \$socket => 'AnyEvent::TCP::Server::LogServer';
     }
+    dbg_msg "Logger initiating";
+    $INITIATED = 1;
+    dbg_msg "Initiated: $INITIATED";
     return $server_log;
 }
 
@@ -39,14 +43,18 @@ sub log_client {
         PeerAddr    =>  log_host() . ':' . log_port(),
         Proto       =>  'udp',
     );
+
+    *{AnyEvent::TCP::Server::LogClient::enabled} = sub {return 1;};
     bless \$logger => 'AnyEvent::TCP::Server::LogClient';
 }
+
 
 sub log_conf {
     my (%params) = @_;
     log_port ( $params{port} );
     log_host ( $params{host} );
 }
+
 
 sub log_host {
     my $host = shift;
@@ -90,9 +98,49 @@ use strict;
 use Carp;
 use POSIX qw(strftime);
 use Sys::Hostname qw(hostname);
+use subs qw/enabled/;
+
+use AnyEvent::TCP::Server::Log;
+use AnyEvent::TCP::Server::Utils;
+
+
+sub enabled {
+    return 0;
+}
+
+
+sub splunk_log {
+    return 1 unless enabled;
+    my $self = shift;
+
+    my $params;
+    if (ref $_[0]) {
+        $params = shift;
+    }
+    else {
+        my %params = @_;
+        $params = \%params;
+    }
+
+    my $date = strftime(q|%Y-%m-%d %H:%M:%S :> |, localtime);
+
+    my @msg;
+    for my $key (keys %$params) {
+        if (exists $params->{$key}) {
+            push @msg, "$key=$params->{$key}";
+        }
+    }
+    my $msg = join ' ', @msg;
+    $msg .= "\n";
+
+    my $logline = $date . $msg;
+
+    $self->send_udp_log($logline);
+}
 
 sub log {
     my ($self, @msg) = @_;
+    return 1 unless enabled;
 
     my $msg = join '', @msg;
     my $logline = $self->format_log($msg);
@@ -101,7 +149,9 @@ sub log {
 }
 
 sub send_udp_log {
+    return 1 unless enabled;
     my ( $self, $logline ) = @_;
+
     return $$self->send($logline);
 }
 

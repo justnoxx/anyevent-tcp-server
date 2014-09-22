@@ -26,7 +26,6 @@ sub spawn {
         $open_mode = '>>';
     }
 
-    dbg_msg "Params: ", Dumper \%params;
     return $self->SUPER::spawn(
         type        => 'logger_worker',
         number      =>  $params{number},
