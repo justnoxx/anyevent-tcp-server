@@ -26,7 +26,6 @@ sub new {
         firstrun            =>  1,
         client_forwarding   =>  0,
         max_workers         =>  $params->{workers},
-        # procname            =>  'AE::TCP::Server::Master',
     };
 
     bless $self, $class;
@@ -114,6 +113,7 @@ sub run {
             append          =>  $log_config->{append},
             filename        =>  $log_config->{filename},
         );
+        push @{$self->{_logger_worker}}, $l;
         dbg_msg Dumper $l;
     }
 
@@ -151,7 +151,7 @@ sub run {
 
     eval {
         # start connection manager
-        $guard = tcp_server undef, $init_params->{port}, sub {
+        $self->{tcp_server_guard} = $guard = tcp_server undef, $init_params->{port}, sub {
             my ($fh, $host, $port) = @_;
 
             # call user's on_connect callback
@@ -230,6 +230,16 @@ sub set_watchers {
 
     $self->{watchers} = {};
 
+    if ($self->{_logger_worker} && scalar @{$self->{_logger_worker}}) {
+        my $lw = $self->{_logger_worker}->[0];
+        $self->{log_watcher} = AnyEvent->child(
+            pid     =>  $lw->pid(),
+            cb      =>  sub {
+                dbg_msg 'OMG IT DIED!';
+            },
+        );
+    }
+
     for my $w (values %{$self->{_workers}}) {
         my $worker_no = $w->worker_no();
         # set watcher by number
@@ -286,6 +296,9 @@ sub reap_children {
     for my $w (values %{$self->{_workers}}) {
         dbg_msg "[$$]: Reaping: $w->{pid}!";
         kill POSIX::SIGTERM, $w->{pid};
+    }
+    for my $w (values %{$self->{_logger_worker}}) {
+        dbg_msg "[$$]: Reaping logger: ", $w->pid(), "\n";
     }
     return 1;
 }

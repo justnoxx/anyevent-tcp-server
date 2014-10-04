@@ -47,7 +47,8 @@ sub spawn {
             }
         },
         master_does => sub {
-            1;
+            my ($self) = @_;
+            return $self;
         },
     );
 }
