@@ -1,7 +1,7 @@
 package AnyEvent::TCP::Server::Master;
 
 use strict;
-use warnings;
+##use warnings;
 
 use Carp;
 use Data::Dumper;
@@ -68,7 +68,42 @@ sub prepare {
     dbg_msg 'prepared for respawn: ', Dumper $self->{respawn};
 }
 
+sub spawn_logger {
+    my ($self) = @_;
+    my $init_params = $self->init_params();
+    if ($init_params->{_log}) {
+        dbg_msg("Spawning logger");
+        my $log_config = $init_params->{_log};
 
+        if (!$log_config->{filename}) {
+            croak "Bad parameters";
+        }
+
+        my $l = AnyEvent::TCP::Server::LoggerWorker->spawn(
+            number          =>  1,
+            procname        =>  $init_params->{procname},
+            type            =>  'logger',
+            append          =>  $log_config->{append},
+            filename        =>  $log_config->{filename},
+            worker_does     =>  sub {
+                dbg_msg "Hello, my dear friend!";
+
+                $SIG{INT} = $SIG{TERM} = 'DEFAULT';
+                # at first, if need, we should unloop.
+                if ($self->{_cv}) {
+                    undef $self->{_cv};
+                }
+                if ($self->{tcp_server_guard}) {
+                    undef $self->{tcp_server_guard};
+                }
+            },
+        );
+        $self->{_logger_worker} = [];
+        push @{$self->{_logger_worker}}, $l;
+        $self->set_logger_watcher();
+    }
+
+}
 # main function
 sub run {
     my ($self) = @_;
@@ -97,26 +132,8 @@ sub run {
         $self->add_worker($w, $key);
         $self->numerate($w->{pid}, $key);
     }
-
-    dbg_msg "Spawning logger";
-    if ($init_params->{_log}) {
-        my $log_config = $init_params->{_log};
-
-        if (!$log_config->{filename}) {
-            croak "Bad parameters";
-        }
-
-        my $l = AnyEvent::TCP::Server::LoggerWorker->spawn(
-            number          =>  1,
-            procname        =>  $init_params->{procname},
-            type            =>  'logger',
-            append          =>  $log_config->{append},
-            filename        =>  $log_config->{filename},
-        );
-        push @{$self->{_logger_worker}}, $l;
-        dbg_msg Dumper $l;
-    }
-
+    
+    $self->spawn_logger();
     dbg_msg "Workers spawned";
 
     # clean respawn hash, before we start
@@ -222,6 +239,24 @@ sub next_worker {
 }
 
 
+sub set_logger_watcher {
+    my ($self) = @_;
+    
+    if ($self->{_logger_worker} && scalar @{$self->{_logger_worker}}) {
+        my $lw = $self->{_logger_worker}->[0];
+        dbg_msg Dumper $lw;
+        $self->{log_watcher} = AnyEvent->child(
+            pid     =>  $lw->{pid},
+            cb      =>  sub {
+                dbg_msg "Logger died. Respawning.";
+                $self->spawn_logger();
+            },
+        );
+    }
+    return 1;
+}
+
+
 sub set_watchers {
     my ($self) = @_;
     
@@ -229,16 +264,6 @@ sub set_watchers {
     my $init_params = $self->{_init_params};
 
     $self->{watchers} = {};
-
-    if ($self->{_logger_worker} && scalar @{$self->{_logger_worker}}) {
-        my $lw = $self->{_logger_worker}->[0];
-        $self->{log_watcher} = AnyEvent->child(
-            pid     =>  $lw->pid(),
-            cb      =>  sub {
-                dbg_msg 'OMG IT DIED!';
-            },
-        );
-    }
 
     for my $w (values %{$self->{_workers}}) {
         my $worker_no = $w->worker_no();
@@ -297,7 +322,7 @@ sub reap_children {
         dbg_msg "[$$]: Reaping: $w->{pid}!";
         kill POSIX::SIGTERM, $w->{pid};
     }
-    for my $w (values %{$self->{_logger_worker}}) {
+    for my $w (@{$self->{_logger_worker}}) {
         dbg_msg "[$$]: Reaping logger: ", $w->pid(), "\n";
     }
     return 1;

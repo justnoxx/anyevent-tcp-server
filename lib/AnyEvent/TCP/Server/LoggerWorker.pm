@@ -32,6 +32,10 @@ sub spawn {
         procname    =>  $params{procname},
         worker_does => sub {
             my ($self) = @_;
+            if ($params{worker_does}) {
+                my $sub = $params{worker_does};
+                $sub->($self);
+            }
             $self->{logger} = init_logger();
         },
         run         => sub {

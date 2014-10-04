@@ -9,6 +9,7 @@ Little log mechanism. Doc will be soon.
 use strict;
 use warnings;
 
+use Data::Dumper;
 use Carp 'confess';
 use IO::Socket::INET;
 use Exporter 'import';
@@ -128,7 +129,7 @@ sub splunk_log {
 
     my @msg;
     for my $key (keys %$params) {
-        if (exists $params->{$key}) {
+        if ($params->{$key}) {
             push @msg, "$key=$params->{$key}";
         }
     }
