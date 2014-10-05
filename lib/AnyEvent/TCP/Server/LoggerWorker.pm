@@ -9,7 +9,7 @@ use AnyEvent::TCP::Server::AbstractWorker;
 use base qw/AnyEvent::TCP::Server::AbstractWorker/;
 
 # $| = 1;
-use AnyEvent::TCP::Server::Log qw/init_logger/;
+use AnyEvent::TCP::Server::Log qw/init_logger log_conf/;
 my $FH;
 
 sub spawn {
@@ -19,6 +19,7 @@ sub spawn {
     unless ($params{filename}) {
         croak "Can't spawn log worker without logfile parameter!";
     }
+
     my $logfile = $params{filename};
 
     my $open_mode = '>';

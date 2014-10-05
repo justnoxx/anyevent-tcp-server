@@ -85,6 +85,7 @@ sub spawn_logger {
             type            =>  'logger',
             append          =>  $log_config->{append},
             filename        =>  $log_config->{filename},
+            port            =>  $log_config->{port},
             worker_does     =>  sub {
                 dbg_msg "Hello, my dear friend!";
 

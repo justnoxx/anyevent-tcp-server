@@ -16,7 +16,7 @@ use AnyEvent::TCP::Server::Utils;
 use AnyEvent::TCP::Server::Log qw/log_conf log_client/;
 
 
-our $VERSION = 0.70;
+our $VERSION = 0.71;
 
 
 sub new {
@@ -60,17 +60,22 @@ sub new {
     }
     
     if ($params{log} && ref $params{log} eq 'HASH') {
-        log_conf(
-            host => 'localhost',
-            port => '11001',
-        );
         $self->{_log} = {
             filename        =>  $params{log}->{filename},
-            # format_string   =>  $params{log}->{format_string} // croak "Can't init log params without format_string",
         };
         if ($params{log}->{append}) {
             $self->{_log}->{append} = $params{log}->{append};
         }
+        if ($params{log}->{port}) {
+            $self->{_log}->{port} = $params{log}->{port};
+            AnyEvent::TCP::Server::Log::log_conf(
+                port => $self->{_log}->{port},
+            );
+            $AnyEvent::TCP::Server::Log::LOG_PORT = $self->{_log}->{port};
+            dbg_msg "PORT: $self->{_log}->{port}";
+            dbg_msg "Log port: ", $AnyEvent::TCP::Server::Log::LOG_PORT;
+        }
+
     }
 
     if (!$params{procname}) {

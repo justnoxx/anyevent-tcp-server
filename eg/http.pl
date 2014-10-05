@@ -32,6 +32,7 @@ my $ae = AnyEvent::TCP::Server->new(
     # log                 =>  {
     #     filename        =>  '/Users/noxx/git/anyevent-tcp-server/eg/aetcpsrvr.log',
     #     append          =>  1,
+    #     port            =>  55557,
     # },
     process_request     =>  sub {
         my ($worker_object, $fh, $client) = @_;

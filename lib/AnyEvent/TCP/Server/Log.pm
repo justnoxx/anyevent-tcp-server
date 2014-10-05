@@ -18,13 +18,17 @@ use AnyEvent::TCP::Server::Utils;
 our @EXPORT_OK = qw(log_client init_logger log_conf);
 our $INITIATED = 0;
 
-my $LOG_HOST = 'localhost';
-my $LOG_PORT = 55555;
+our $LOG_HOST = 'localhost';
+our $LOG_PORT = 55555;
+# my $LOG_PORT;
 
 my $server_log;
 
 sub init_logger {
     unless ( $server_log) {
+        if (!$LOG_PORT) {
+            $LOG_PORT = 55555;
+        }
         my $socket = IO::Socket::INET->new(
             LocalAddr => log_host(),
             LocalPort => log_port(),
@@ -70,9 +74,12 @@ sub log_host {
 }
 
 sub log_port {
-    if ($_[0]) {
+    my $port = shift;
+
+    dbg_msg "Port: $LOG_PORT\n";
+    if ($port) {
         unless ($LOG_PORT) {
-            $LOG_PORT = $_[0];
+            $LOG_PORT = $port;
         }
     }
     return $LOG_PORT;
