@@ -17,7 +17,7 @@ Yeah. this thing is really blazing fast. You can try it by benchmarking hello-wo
 
 ## What's next
 
-I working hard on this thing and I'll create PSGI server. And one more. After 1.0 release this software, I'll make this code as deprecated.
+I working hard on this thing and I'll create PSGI server. And one more. After 1.0 version release of this software, I'll make this code as deprecated.
 Why? There is another thing with same functional, but faster, is under construction. Api will be complete compatible.
 
 ## METHODS
