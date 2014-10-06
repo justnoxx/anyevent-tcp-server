@@ -65,7 +65,7 @@ sub prepare {
 
     $self->{firstrun} = 0;
 
-    dbg_msg 'prepared for respawn: ', Dumper $self->{respawn};
+    dbg_msg 'prepared for respawn: ', join (', ',  keys %{$self->{respawn}});
 }
 
 sub spawn_logger {
@@ -87,16 +87,14 @@ sub spawn_logger {
             filename        =>  $log_config->{filename},
             port            =>  $log_config->{port},
             worker_does     =>  sub {
-                dbg_msg "Hello, my dear friend!";
-
-                $SIG{INT} = $SIG{TERM} = 'DEFAULT';
                 # at first, if need, we should unloop.
-                if ($self->{_cv}) {
-                    undef $self->{_cv};
-                }
-                if ($self->{tcp_server_guard}) {
-                    undef $self->{tcp_server_guard};
-                }
+                
+                #if ($self->{_cv}) {
+                    #undef $self->{_cv};
+                #}
+                #if ($self->{tcp_server_guard}) {
+                    #undef $self->{tcp_server_guard};
+                #}
             },
         );
         $self->{_logger_worker} = [];
@@ -134,7 +132,9 @@ sub run {
         $self->numerate($w->{pid}, $key);
     }
     
-    $self->spawn_logger();
+    unless ($self->{RESPAWN}) {
+        $self->spawn_logger();
+    }
     dbg_msg "Workers spawned";
 
     # clean respawn hash, before we start
@@ -203,6 +203,7 @@ sub run {
     
     my $cmd = $self->{_cv}->recv();
     $self->{_cv} = undef;
+    $self->{tcp_server_guard} = undef;
     $guard = undef;
 
     # will respawn
@@ -211,6 +212,7 @@ sub run {
         $SIG{INT} = $SIG{TERM} = 'DEFAULT';
 
         # this sub is recursive because I can't fork active state machine.
+        $self->{RESPAWN} = 1;
         $self->run();
     }
     else {
@@ -245,7 +247,6 @@ sub set_logger_watcher {
     
     if ($self->{_logger_worker} && scalar @{$self->{_logger_worker}}) {
         my $lw = $self->{_logger_worker}->[0];
-        dbg_msg Dumper $lw;
         $self->{log_watcher} = AnyEvent->child(
             pid     =>  $lw->{pid},
             cb      =>  sub {
@@ -292,7 +293,8 @@ sub set_watchers {
                 $self->{timer} = AnyEvent->timer(
                     after   =>  0.1,
                     cb      =>  sub {
-                        dbg_msg "Workers for respawn: ", Dumper $self->{respawn};
+                        dbg_msg("Workers for respawn: ", join (', ', keys %{ $self->{respawn}}));
+                        #dbg_msg "Workers for respawn: ", join ', ' , @{$self->{respawn}};
                         $self->{_cv}->send('RESPAWN');
                     }
                 );
@@ -325,6 +327,7 @@ sub reap_children {
     }
     for my $w (@{$self->{_logger_worker}}) {
         dbg_msg "[$$]: Reaping logger: ", $w->pid(), "\n";
+        kill POSIX::SIGTERM, $w->pid();
     }
     return 1;
 }

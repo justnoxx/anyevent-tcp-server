@@ -76,7 +76,6 @@ sub log_host {
 sub log_port {
     my $port = shift;
 
-    dbg_msg "Port: $LOG_PORT\n";
     if ($port) {
         unless ($LOG_PORT) {
             $LOG_PORT = $port;
@@ -151,8 +150,10 @@ sub splunk_log {
 sub log {
     my ($self, @msg) = @_;
     return 1 unless enabled;
-
+    
     my $msg = join '', @msg;
+
+    return 1 unless $msg;
     my $logline = $self->format_log($msg);
 
     $self->send_udp_log($logline);
@@ -161,7 +162,8 @@ sub log {
 sub send_udp_log {
     return 1 unless enabled;
     my ( $self, $logline ) = @_;
-
+    
+    return 1 unless $logline;
     return $$self->send($logline);
 }
 
@@ -170,8 +172,10 @@ sub send_udp_log {
 
 sub format_log {
     my ( $self, $logline ) = @_;
+    
+    return unless $logline;
     my $date = strftime(q{%b %d %H:%M:%S}, localtime);
-    return sprintf q{%s %s %s[%d]: %s }, $date, hostname(), $0, $$, $logline;
+    return sprintf q|%s %s %s[%d]: %s| . "\n", $date, hostname(), $0, $$, $logline;
 }
 
 

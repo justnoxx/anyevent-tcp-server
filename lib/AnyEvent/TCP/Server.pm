@@ -15,8 +15,9 @@ use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
 use AnyEvent::TCP::Server::Log qw/log_conf log_client/;
 
+use System::Daemon;
 
-our $VERSION = 0.71;
+our $VERSION = 0.88;
 
 
 sub new {
@@ -24,7 +25,7 @@ sub new {
 
     my $self = {};
     bless $self, $class;
-
+    
     # main request handler
     if (!$params{process_request}) {
         croak 'Missing process_request param';
@@ -38,27 +39,30 @@ sub new {
     if (!$params{port}) {
         croak 'Missing port param';
     }
-
+    
+    my %daemonize_options = ();
     # params for setuid and setgid
     if ($params{user} || $params{group}) {
         $self->{user} = $params{user};
         $self->{group} = $params{group};
-        $self->apply_rights_change();
+        # $self->apply_rights_change();
+        $daemonize_options{user} = $self->{user} if $self->{user};
+        $daemonize_options{group} = $self->{group} if $self->{group};
     }
 
     if ($params{debug}) {
         debug 1;
     }
 
-    if ($params{daemonize}) {
-        $self->daemonize();
-    }
-
     if ($params{pid}) {
         $self->{master_pid} = $params{pid};
-        $self->do_pid();
+        # $self->do_pid();
+        $daemonize_options{pidfile} = $params{pid};
     }
-    
+    if ($params{daemonize} && !debug) {
+        #$self->daemonize();
+        $self->{daemon} = System::Daemon->new(%daemonize_options);
+    }   
     if ($params{log} && ref $params{log} eq 'HASH') {
         $self->{_log} = {
             filename        =>  $params{log}->{filename},
@@ -103,12 +107,14 @@ sub new {
 
 sub run {
     my ($self) = @_;
-
+    
     $self->announce();
-
     my $master = AnyEvent::TCP::Server::Master->new($self->{_init_params});
 
     $master->prepare();
+    if($self->{daemon}) {
+        $self->{daemon}->daemonize();
+    }
     $master->run();
 }
 
