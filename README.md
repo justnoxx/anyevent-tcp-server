@@ -6,17 +6,19 @@ AnyEvent::TCP::Server
 
 ## WARNINGS
 
-This software is completely alpha quality and based on undocumented features
-every update of dependencies can, potentially, break this software.
-
-Also, I am not sure that it will work on FreeBSD 9 and Windows.
-
-Use Linux, Luke.
+I am not sure that it will work correct on FreeBSD 9 and Windows, but sure, that it will work on linux.
 
 ## DESCRITPION
 
 High perfomance pre-forking full-asynchronous tcp server. One restriction:
 you can't get client info inside process\_request subroutine.
+
+Yeah. this thing is really blazing fast. You can try it by benchmarking hello-world http server.
+
+## What's next
+
+I working hard on this thing and I'll create PSGI server. And one more. After 1.0 release this software, I'll make this code as deprecated.
+Why? There is another thing with same functional, but faster, is under construction. Api will be complete compatible.
 
 ## METHODS
 
