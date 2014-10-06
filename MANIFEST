@@ -1,0 +1,18 @@
+CHANGES.md
+eg/http.pl
+eg/test.pl
+lib/AETCPSRVR.pm
+lib/AnyEvent/TCP/Server.pm
+lib/AnyEvent/TCP/Server/AbstractWorker.pm
+lib/AnyEvent/TCP/Server/Log.pm
+lib/AnyEvent/TCP/Server/LoggerWorker.pm
+lib/AnyEvent/TCP/Server/Master.pm
+lib/AnyEvent/TCP/Server/ProcessWorker.pm
+lib/AnyEvent/TCP/Server/Utils.pm
+Makefile.PL
+MANIFEST			This list of files
+README.md
+t/00-import.t
+t/01-deps.t
+t/02-main.t
+t/03-http-server.t
