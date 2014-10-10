@@ -3,7 +3,6 @@ use strict;
 use warnings;
 use base qw/AnyEvent::TCP::Server::AbstractWorker/;
 
-use Data::Dumper;
 use Carp;
 use AnyEvent;
 use AnyEvent::Util qw/portable_socketpair fh_nonblocking/;

@@ -9,7 +9,6 @@ Little log mechanism. Doc will be soon.
 use strict;
 use warnings;
 
-use Data::Dumper;
 use Carp 'confess';
 use IO::Socket::INET;
 use Exporter 'import';

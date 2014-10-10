@@ -1,7 +1,6 @@
 package AnyEvent::TCP::Server::AbstractWorker;
 
 use EV;
-use Data::Dumper;
 use Carp;
 use AnyEvent;
 use AnyEvent::Util qw/portable_socketpair fh_nonblocking/;

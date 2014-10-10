@@ -4,7 +4,6 @@ use strict;
 ##use warnings;
 
 use Carp;
-use Data::Dumper;
 use AnyEvent;
 use AnyEvent::Socket;
 use AnyEvent::Handle;
@@ -132,7 +131,7 @@ sub run {
         $self->numerate($w->{pid}, $key);
     }
     
-    unless ($self->{RESPAWN}) {
+    unless ($self->{RESPAWN_PROCESS_WORKERS}) {
         $self->spawn_logger();
     }
     dbg_msg "Workers spawned";
@@ -166,6 +165,8 @@ sub run {
 
     
     my $guard;
+
+    $self->{RESPAWN_PROCESS_WORKERS} = 0;
 
     eval {
         # start connection manager
@@ -212,7 +213,7 @@ sub run {
         $SIG{INT} = $SIG{TERM} = 'DEFAULT';
 
         # this sub is recursive because I can't fork active state machine.
-        $self->{RESPAWN} = 1;
+        $self->{RESPAWN_PROCESS_WORKERS} = 1;
         $self->run();
     }
     else {

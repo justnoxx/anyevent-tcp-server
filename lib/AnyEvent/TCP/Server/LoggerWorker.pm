@@ -3,7 +3,6 @@ package AnyEvent::TCP::Server::LoggerWorker;
 use strict;
 use IO::Socket::INET;
 use Carp;
-use Data::Dumper;
 use AnyEvent::TCP::Server::Utils;
 use AnyEvent::TCP::Server::AbstractWorker;
 use base qw/AnyEvent::TCP::Server::AbstractWorker/;
