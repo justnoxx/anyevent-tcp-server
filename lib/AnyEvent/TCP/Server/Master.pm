@@ -87,13 +87,12 @@ sub spawn_logger {
             port            =>  $log_config->{port},
             worker_does     =>  sub {
                 # at first, if need, we should unloop.
-                
-                #if ($self->{_cv}) {
-                    #undef $self->{_cv};
-                #}
-                #if ($self->{tcp_server_guard}) {
-                    #undef $self->{tcp_server_guard};
-                #}
+                if ($self->{_cv}) {
+                    undef $self->{_cv};
+                }
+                if ($self->{tcp_server_guard}) {
+                    undef $self->{tcp_server_guard};
+                }
             },
         );
         $self->{_logger_worker} = [];
@@ -131,9 +130,16 @@ sub run {
         $self->numerate($w->{pid}, $key);
     }
     
-    unless ($self->{RESPAWN_PROCESS_WORKERS}) {
-        $self->spawn_logger();
+    unless ($self->{RESPAWN_ONLY_PROCESS_WORKERS}) {
+        eval {
+            $self->spawn_logger();
+            1;
+        } or do {
+            dbg_msg "Error occured during logger respawn: $@";
+        };
     }
+    $self->{RESPAWN_ONLY_PROCESS_WORKERS} = 1;
+
     dbg_msg "Workers spawned";
 
     # clean respawn hash, before we start
@@ -163,14 +169,9 @@ sub run {
     # set child watchers
     $self->set_watchers();
 
-    
-    my $guard;
-
-    $self->{RESPAWN_PROCESS_WORKERS} = 0;
-
     eval {
         # start connection manager
-        $self->{tcp_server_guard} = $guard = tcp_server undef, $init_params->{port}, sub {
+        $self->{tcp_server_guard} = tcp_server undef, $init_params->{port}, sub {
             my ($fh, $host, $port) = @_;
 
             # call user's on_connect callback
@@ -205,7 +206,6 @@ sub run {
     my $cmd = $self->{_cv}->recv();
     $self->{_cv} = undef;
     $self->{tcp_server_guard} = undef;
-    $guard = undef;
 
     # will respawn
     if ($cmd eq 'RESPAWN') {
@@ -213,7 +213,6 @@ sub run {
         $SIG{INT} = $SIG{TERM} = 'DEFAULT';
 
         # this sub is recursive because I can't fork active state machine.
-        $self->{RESPAWN_PROCESS_WORKERS} = 1;
         $self->run();
     }
     else {

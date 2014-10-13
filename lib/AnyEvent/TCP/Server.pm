@@ -17,7 +17,7 @@ use AnyEvent::TCP::Server::Log qw/log_conf log_client/;
 
 use System::Daemon;
 
-our $VERSION = 0.89;
+our $VERSION = 0.90;
 
 
 sub new {

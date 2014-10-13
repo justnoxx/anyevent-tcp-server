@@ -46,7 +46,6 @@ sub spawn {
             dbg_msg "Gonna run logger";
             open $FH, $open_mode, $logfile;
             $FH->autoflush();
-            print $FH "Starting...\n";
             while (my $log_chunk = $self->{logger}->recv()) {
                 dbg_msg "Logger worker accepting log string:\n $log_chunk\n";
                 print $FH $log_chunk or carp "Error: $!";

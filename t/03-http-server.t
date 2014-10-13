@@ -80,11 +80,10 @@ sub start_tests {
     my @content = <LOGFILE>;
     my $ok = 0;
     for (@content) {
-        $ok++ if m/Starting...\s$/s;
         $ok++ if m/ON_CONNECT_HANDLER\s$/s;
         $ok++ if m/REQUEST\s$/s;
     }
-    is($ok, 3, "Logfile content ok");
+    is($ok, 2, "Logfile content ok");
     
 
     ### 5 test ###
@@ -168,7 +167,7 @@ sub start_tests {
     
     
     ### 15 ###
-    # last one, we'll check, is worker able to write logs after respawn
+    # we'll check, is worker able to write logs after respawn
     $log_size = -s $LOGFILE;
     undef $cv;
     $cv = AnyEvent->condvar();
@@ -184,8 +183,32 @@ sub start_tests {
     $cv->recv();
 
     ok($log_size < -s $LOGFILE, "Logfile appended after respawn ok");
-    done_testing();
+
+    ### 16 ###
+    # this case was found by chance. When you'll kill process worker, then you'll kill logger worker, and then, finally,
+    # server will crash. That is a critical bug, reason of which is not ehough cleanup at master startup.
     
+    my $process_workers = System::Process::pidinfo pattern => "$PROCNAME\\s+process_worker";
+    # kill 1st process worker
+    ok($process_workers->[0]->kill(POSIX::SIGTERM), "Killing process_worker again");
+    # kill logger worker
+    ok($logger_worker->[0]->kill(POSIX::SIGTERM), "Killing logger");
+    # kill another process worker
+    ok($process_workers->[1]->kill(POSIX::SIGTERM), "Killing another process_worker");
+    
+    sleep 5;
+    undef $cv;
+    $cv = AnyEvent->condvar();
+    #$guard = undef; $guard = http_get "http://localhost:44444/", sub {
+    $guard = http_get "http://localhost:44444/", sub {
+        undef $guard;
+        my ($content, undef) = @_;
+        is($content, 'Good', "Not affected by fork bug");
+        $cv->send("DONE");
+    };
+    $cv->recv();
+
+    done_testing();
     unlink $LOGFILE;
     unlink $PIDFILE;
     $pid->kill(POSIX::SIGTERM);
