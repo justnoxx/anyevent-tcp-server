@@ -33,10 +33,9 @@ sub new {
         $self->{procname} = $self->{_init_params}->{procname} . ' master';
     }
 
-    # I have no idea, right now, hot to forward client data to callback most efficient way.
     if ($self->{_init_params}->{client_forwarding}) {
         $self->{client_forwarding} = 1;
-        croak "Client forwarding disabled right now. Maybe, it will be available soon.";
+        # croak "Client forwarding disabled right now. Maybe, it will be available soon.";
     }
 
     if ($params->{check_on_connect}) {
@@ -79,13 +78,13 @@ sub spawn_logger {
         }
 
         my $l = AnyEvent::TCP::Server::LoggerWorker->spawn(
-            number          =>  1,
-            procname        =>  $init_params->{procname},
-            type            =>  'logger',
-            append          =>  $log_config->{append},
-            filename        =>  $log_config->{filename},
-            port            =>  $log_config->{port},
-            worker_does     =>  sub {
+            number              =>  1,
+            procname            =>  $init_params->{procname},
+            type                =>  'logger',
+            append              =>  $log_config->{append},
+            filename            =>  $log_config->{filename},
+            port                =>  $log_config->{port},
+            worker_does         =>  sub {
                 # at first, if need, we should unloop.
                 if ($self->{_cv}) {
                     undef $self->{_cv};
@@ -122,9 +121,10 @@ sub run {
         # my $w = AnyEvent::TCP::Server::Worker->spawn($init_params, $key);
 
         my $w = AnyEvent::TCP::Server::ProcessWorker->spawn(
-            process_request =>  $init_params->{process_request},
-            number          =>  $key,
-            procname        =>  $init_params->{procname},
+            process_request     =>  $init_params->{process_request},
+            number              =>  $key,
+            procname            =>  $init_params->{procname},
+            client_forwarding   =>  $self->{client_forwarding},
         );
         $self->add_worker($w, $key);
         $self->numerate($w->{pid}, $key);
@@ -192,7 +192,6 @@ sub run {
 
             my $s = $cw->{writer};
 
-            # opened file descriptor forwarding. That's why I can't forward
             # additional data right now.
             IO::FDPass::send fileno $s, fileno $fh or croak $!;
         };

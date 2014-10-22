@@ -6,17 +6,24 @@ use base qw/AnyEvent::TCP::Server::AbstractWorker/;
 use Carp;
 use AnyEvent;
 use AnyEvent::Util qw/portable_socketpair fh_nonblocking/;
+use Socket;
 use IO::Socket::UNIX;
 use IO::FDPass;
 
 use AnyEvent::TCP::Server::Utils;
 use AnyEvent::TCP::Server::Log q/log_client/;
 
+my $CLIENT_FORWARDING = 0;
+
 sub spawn {
     my ($self_p, %params) = @_;
 
     if (!$params{process_request} || ref $params{process_request} ne 'CODE') {
         croak 'Missing process_request handler';
+    }
+
+    if ($params{client_forwarding}) {
+        $CLIENT_FORWARDING = 1;
     }
 
     no warnings qw/redefine/;
@@ -60,11 +67,20 @@ sub spawn {
                         dbg_msg "Unable to convert file descriptor to handle: $!";
                         # self-kill, if file descriptor is broken. Master will handle it.
                         # If master dead, there are no one, who cares.
-                        # $self->sepukku();
+                        $wo->seppuku();
                     };
                     
+                    my $client_data = {};
+                    if ($CLIENT_FORWARDING) {
+                        my $sockaddr = getsockname($fh);
+                        my ($mport, $maddr) = sockaddr_in($sockaddr);
+                        $client_data = {
+                            host    =>  inet_ntoa($maddr),
+                            port    =>  $mport,
+                        };
+                    }
                     # process request with user subroutine
-                    $wo->process_request($fh, {});
+                    $wo->process_request($fh, $client_data);
                 },
             );
             $wo->condvar()->recv();

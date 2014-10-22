@@ -17,7 +17,7 @@ use AnyEvent::TCP::Server::Log qw/log_conf log_client/;
 
 use System::Daemon;
 
-our $VERSION = 0.90;
+our $VERSION = 0.91;
 
 
 sub new {
@@ -45,7 +45,6 @@ sub new {
     if ($params{user} || $params{group}) {
         $self->{user} = $params{user};
         $self->{group} = $params{group};
-        # $self->apply_rights_change();
         $daemonize_options{user} = $self->{user} if $self->{user};
         $daemonize_options{group} = $self->{group} if $self->{group};
     }
@@ -56,7 +55,6 @@ sub new {
 
     if ($params{pid}) {
         $self->{master_pid} = $params{pid};
-        # $self->do_pid();
         $daemonize_options{pidfile} = $params{pid};
     }
     if ($params{daemonize} && !debug) {
@@ -133,79 +131,6 @@ sub announce {
 }
 
 
-# daemonize section
-sub daemonize {
-    my ($self) = @_;
-
-    unless (debug) {
-        open STDIN, '/dev/null'     or croak "Can't read /dev/null: $!";
-        open STDOUT, '>>/dev/null'  or croak "Can't write to /dev/null: $!";
-        open STDERR, '>>/dev/null'  or croak "Can't write to /dev/null: $!";
-    }
-
-    chdir '/';
-    exit if fork();
-}
-
-
-sub do_pid {
-    my ($self, $pidfile) = @_;
-
-    $pidfile ||= $self->{master_pid};
-
-    if (-e $pidfile) {
-        if (-s $pidfile) {
-            open PID, $pidfile or die "Can't open $pidfile for read: $!";
-            my $pid = <PID>;
-            close PID;
-
-            if (kill 0, $pid) {
-                dbg_msg "Can't overwrite pid of alive process...";
-                exit 1;
-            }
-        }
-    }
-    open PID, '>', $pidfile or die "Can't open $pidfile for write: $!";
-    print PID $$;
-    close PID;
-    return 1;
-}
-
-
-sub apply_rights_change {
-    my $options = shift;
-
-    if ($options->{group}) {
-        dbg_msg "Gonna setgid";
-        my $gid = getpwnam($options->{group});
-        
-        unless ($gid) {
-            croak "Group $options->{group} does not exists.";
-        }
-
-        unless (setgid($gid)) {
-            dbg_msg "Can't setgid $gid: $!";
-            croak "Can't setgid $gid: $!";
-        }
-    }
-
-    if ($options->{user}) {
-        dbg_msg "Gonna setuid";
-        my $uid = getpwnam($options->{user});
-
-        unless ($uid) {
-            croak "User $options->{user} does not exists.";
-        }
-
-        unless (setuid($uid)) {
-            dbg_msg "Can't setuid $uid: $!";
-            croak "Can't setuid $uid: $!";
-        }
-    }
-
-    return 1;
-}
-
 sub get_logger {
     return log_client();
 }
@@ -226,6 +151,9 @@ B<you can't get client info(host, port, etc) inside of process_request_handler>
 =head1 SYNOPSIS
     
     use AnyEvent::TCP::Server;
+    # or
+    # use AETCPSRCV; # as macro.
+
     my $ae_srvr = AnyEvent::TCP::Server->new(
         # will daemonize
         daemonize           =>  1,
@@ -233,7 +161,7 @@ B<you can't get client info(host, port, etc) inside of process_request_handler>
         # path to pid file, which used for master process pid
         # pid               =>  '/path/to/pid/file',
 
-        # enables advanced debug
+        # enables advanced debug, but disables daemonize
         debug               =>  1,
 
         # process name, used for ps
@@ -250,10 +178,23 @@ B<you can't get client info(host, port, etc) inside of process_request_handler>
 
         # main subroutine, it used by workers for request processing.
         process_request     =>  sub {
-            my ($worker_object, $fh, undef) = @_;
+            my ($worker_object, $fh, $client_data) = @_;
             syswrite $fh, "[$$]: Hello!";
             close $fh;
         },
+
+        # high-perfomance UDP logger
+        # if this section does not exist, logger process will not be spawned
+        log                 => {
+            # logfile as is, use absolute path
+            filename    =>  '/path/to/log',
+            # open mode, default is 0
+            append      =>  1,
+            # UDP port, used for listening
+            port        =>  55557,
+        },
+        # workers count for AETCPSRVR
+        workers_count   =>  9,
     );
     
     # run server
