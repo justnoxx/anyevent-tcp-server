@@ -12,6 +12,7 @@ use IO::FDPass;
 use AnyEvent::TCP::Server::ProcessWorker;
 use AnyEvent::TCP::Server::Utils;
 use AnyEvent::TCP::Server::LoggerWorker;
+
 use POSIX;
 
 
@@ -94,6 +95,7 @@ sub spawn_logger {
                 }
             },
         );
+        dbg_msg "[$$]Logger spawned with pid: $l->{pid}";
         $self->{_logger_worker} = [];
         push @{$self->{_logger_worker}}, $l;
         $self->set_logger_watcher();

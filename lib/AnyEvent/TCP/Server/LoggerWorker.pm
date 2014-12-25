@@ -42,7 +42,8 @@ sub spawn {
             my ($self) = @_;
             
 
-            $SIG{INT} = $SIG{TERM} = 'DEFAULT';
+            $SIG{INT} ='DEFAULT';
+            $SIG{TERM} = 'DEFAULT';
             dbg_msg "Gonna run logger";
             open $FH, $open_mode, $logfile;
             $FH->autoflush();

@@ -11,7 +11,7 @@ use subs qw /debug now dbg_msg procname/;
 our @EXPORT = qw/now debug dbg_msg procname/;
 
 
-my $NOW_FORMAT = '[%d-%02d-%02d %02d:%02d:%02d]';
+my $NOW_FORMAT = '[%d-%02d-%02d %02d:%02d:%02d][%s]';
 
 my $DEBUG = 0;
 my $LOG_FILE;
@@ -31,7 +31,7 @@ sub now {
     $year += 1900;
     $mon++;
 
-    return sprintf ($NOW_FORMAT, $year, $mon, $mday, $hour, $min, $sec);
+    return sprintf ($NOW_FORMAT, $year, $mon, $mday, $hour, $min, $sec, $$);
 }
 
 
